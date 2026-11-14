@@ -1,0 +1,12 @@
+{
+  "name": "imessage-mcp",
+  "interface": { "displayName": "iMessage MCP" },
+  "plugins": [
+    {
+      "name": "imessage-mcp",
+      "source": { "source": "local", "path": "./codex/imessage-mcp" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

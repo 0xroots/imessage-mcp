@@ -45,7 +45,8 @@ Your identity and Team ID stay in your shell, never in the repository. The app a
 |---|---|
 | **Claude Code** (plugin) | `/plugin marketplace add 0xroots/imessage-mcp` then `/plugin install imessage-mcp@imessage-mcp` |
 | **Claude Code** (command) | `claude mcp add --scope user --transport stdio imessage-mcp -- /Applications/iMessageMCP.app/Contents/Helpers/messages-mcp "$HOME/Library/Containers/org.messageslocal.app/Data/tmp/messages-mcp.sock"` |
-| **Codex** | `codex mcp add imessage-mcp -- /Applications/iMessageMCP.app/Contents/Helpers/messages-mcp "$HOME/Library/Containers/org.messageslocal.app/Data/tmp/messages-mcp.sock"` |
+| **Codex** (plugin) | `codex plugin marketplace add 0xroots/imessage-mcp` then `codex plugin add imessage-mcp@imessage-mcp` |
+| **Codex** (command) | `codex mcp add imessage-mcp -- /Applications/iMessageMCP.app/Contents/Helpers/messages-mcp "$HOME/Library/Containers/org.messageslocal.app/Data/tmp/messages-mcp.sock"` |
 | **Any MCP client** | Add a stdio server with the same command and one argument, the socket path. See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) |
 
 The plugin adds the MCP server and a skill that teaches the assistant the safe way to use it. It needs the app from step 1. If you installed the app somewhere else, set `IMESSAGE_MCP_APP` to its path.
