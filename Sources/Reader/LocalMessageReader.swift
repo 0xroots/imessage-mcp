@@ -254,8 +254,6 @@ enum LocalMessageReader {
    if allowedGUIDs.isEmpty {return []}
   }
   return try session(folder:folder,filename:filename){db in
-   // Avoid an unbounded whole-database aggregation while Messages may be
-   // writing; last activity remains unavailable until a bounded query is safe.
    let ids=allowedGUIDs?.sorted{Array($0.utf8).lexicographicallyPrecedes(Array($1.utf8))} ?? []
    var bindings:[(OpaquePointer)throws->Void]=[]
    let scope:String
@@ -265,10 +263,29 @@ enum LocalMessageReader {
     }.joined(separator:",")
     scope=" AND guid COLLATE BINARY IN (\(placeholders))"
    } else {scope=""}
-   let s=try prepare(db,"SELECT guid,chat_identifier,NULL FROM chat WHERE guid IS NOT NULL AND typeof(guid)='text' AND length(guid)>0 AND instr(guid,char(0))=0\(scope) ORDER BY ROWID DESC LIMIT 1000");defer{sqlite3_finalize(s)}
-   for bind in bindings {try bind(s)}
-   var rows:[LocalConversation]=[]
-   while true {let rc=sqlite3_step(s);if rc==SQLITE_DONE {break};guard rc==SQLITE_ROW else {throw sqliteFailure(rc)};guard let guid=string(s,0),validGUID(guid) else {continue};let date=sqlite3_column_type(s,2)==SQLITE_INTEGER ? sqlite3_column_int64(s,2):nil;rows.append(LocalConversation(guid:guid,identifier:string(s,1) ?? "[unknown]",lastDate:date))}
+   // Last activity: the newest message of each chat through the (chat_id, message_id) key,
+   // one bounded lookup per chat. If this query is unavailable the list still works, undated.
+   let lastDate="(SELECT m.date FROM chat_message_join j JOIN message m ON m.ROWID=j.message_id WHERE j.chat_id=chat.ROWID ORDER BY j.message_id DESC LIMIT 1)"
+   func list(_ dateExpression:String)throws->[LocalConversation] {
+    let s=try prepare(db,"SELECT guid,chat_identifier,\(dateExpression) FROM chat WHERE guid IS NOT NULL AND typeof(guid)='text' AND length(guid)>0 AND instr(guid,char(0))=0\(scope) ORDER BY ROWID DESC LIMIT 1000");defer{sqlite3_finalize(s)}
+    for bind in bindings {try bind(s)}
+    var rows:[LocalConversation]=[]
+    while true {let rc=sqlite3_step(s);if rc==SQLITE_DONE {break};guard rc==SQLITE_ROW else {throw sqliteFailure(rc)};guard let guid=string(s,0),validGUID(guid) else {continue};let date=sqlite3_column_type(s,2)==SQLITE_INTEGER ? sqlite3_column_int64(s,2):nil;rows.append(LocalConversation(guid:guid,identifier:string(s,1) ?? "[unknown]",lastDate:date))}
+    return rows
+   }
+   let rows:[LocalConversation]
+   if let dated=try? list(lastDate) {
+    // Most recent conversations first; undated ones last, original order kept for ties.
+    rows=dated.enumerated().sorted{a,b in
+     let x=a.element.lastDate.flatMap{LocalMessageReader.date($0)},y=b.element.lastDate.flatMap{LocalMessageReader.date($0)}
+     switch (x,y) {
+     case let (l?,r?): return l==r ? a.offset<b.offset : l>r
+     case (_?,nil): return true
+     case (nil,_?): return false
+     default: return a.offset<b.offset
+     }
+    }.map{$0.element}
+   } else {rows=try list("NULL")}
    return rows
   }
  }
