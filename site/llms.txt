@@ -1,0 +1,18 @@
+# iMessage MCP
+
+> iMessage MCP is a free, open-source macOS app and MCP server that lets AI tools read, search and send Messages (iMessage/SMS) without Full Disk Access. The app is sandboxed, has no network entitlement, and the owner approves every connection and every sent message.
+
+Key facts:
+- Does not require Full Disk Access: the owner picks ~/Library/Messages once; the app keeps a read-only, app-scoped bookmark. Verified on macOS 27.0.1 with real messages.
+- Runs a local Unix-socket bridge with owner-set limits (duration, message slots, requests per minute). Every connection needs owner approval.
+- send_message shows the exact recipient and text and sends only after the owner confirms. Delivery is not confirmed by the app.
+- Requires macOS 13 or later. License: MIT.
+
+## Docs
+- [Overview and install]({{SITE_URL}}): what it is, how to install, FAQ
+- [README]({{REPO_URL}}/blob/main/README.md): features, tools, limitations
+- [MCP client setup]({{REPO_URL}}/blob/main/docs/MCP_SETUP.md): Claude Code plugin, Codex, any stdio MCP client
+- [Security model]({{REPO_URL}}/blob/main/SECURITY.md): threat model and limits
+
+## Source
+- [Repository]({{REPO_URL}})

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iMessage MCP for Claude Code and Codex: no Full Disk Access</title>
+<meta name="description" content="Let Claude Code, Codex or any MCP client read and send your Messages on macOS without Full Disk Access. Sandboxed, no network, you approve everything.">
+<link rel="canonical" href="https://0xroots.github.io/imessage-mcp/">
+<meta name="theme-color" content="#08080f">
+<meta property="og:type" content="website">
+<meta property="og:title" content="iMessage MCP for Claude Code and Codex: no Full Disk Access">
+<meta property="og:description" content="Your messages stay on your Mac. Lend them to an AI tool for a few minutes, with limits you set. No Full Disk Access.">
+<meta property="og:url" content="https://0xroots.github.io/imessage-mcp/">
+<meta property="og:image" content="https://0xroots.github.io/imessage-mcp/og.png">
+<meta property="og:image:alt" content="iMessage MCP app icon: a teal chat bubble with a battery">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="iMessage MCP for Claude Code and Codex: no Full Disk Access">
+<meta name="twitter:description" content="Read and send Messages from AI tools on macOS. Sandboxed, no network, owner-approved.">
+<meta name="twitter:image" content="https://0xroots.github.io/imessage-mcp/og.png">
+<link rel="icon" href="icon.png">
+<style>
+:root{--bg:#08080f;--bg2:#17103a;--card:rgba(255,255,255,.07);--line:rgba(255,255,255,.12);--text:#f5f5fb;--dim:#b9b9cc;--purple:#8b7cf6;--teal:#1fd9c0;--yellow:#ffd23f;--blue:#57b0ff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font:18px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--text);background:radial-gradient(900px 500px at 8% -5%,rgba(92,52,36,.55),transparent 60%),linear-gradient(180deg,var(--bg),var(--bg2) 120%) fixed}
+a{color:var(--teal)}a:focus-visible,summary:focus-visible{outline:3px solid var(--yellow);outline-offset:3px;border-radius:6px}
+.skip{position:absolute;left:-999px}.skip:focus{left:12px;top:12px;background:var(--yellow);color:#111;padding:8px 12px;border-radius:8px;z-index:9}
+main,header,footer{max-width:960px;margin:0 auto;padding:0 20px}
+header{display:flex;align-items:center;gap:12px;padding-top:24px;padding-bottom:8px}header img{width:44px;height:44px}header strong{font-size:20px}
+.hero{padding:36px 0 8px}h1{font-size:clamp(32px,6vw,52px);line-height:1.1;margin:0 0 16px}
+.lead{font-size:clamp(19px,2.6vw,23px);color:var(--dim);max-width:46em}
+.pill{display:inline-block;background:var(--teal);color:#06231f;font-weight:700;padding:12px 20px;border-radius:14px;text-decoration:none;margin:6px 10px 6px 0}.pill.alt{background:var(--card);color:var(--text);border:1px solid var(--line)}
+section{margin:44px 0}h2{font-size:clamp(25px,4vw,32px);margin:0 0 14px}h3{margin:0 0 6px;font-size:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}.card p{margin:6px 0 0;color:var(--dim)}
+.c1{border-left:6px solid var(--yellow)}.c2{border-left:6px solid var(--teal)}.c3{border-left:6px solid var(--purple)}.c4{border-left:6px solid var(--blue)}
+pre{background:#0d0d1c;border:1px solid var(--line);border-radius:14px;padding:14px;overflow:auto;font-size:15px;line-height:1.5}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+table{width:100%;border-collapse:collapse;font-size:16px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-weight:600}
+details{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 18px;margin:10px 0}summary{cursor:pointer;font-weight:600}details p{color:var(--dim);margin:10px 0 0}
+footer{padding:30px 20px 50px;color:var(--dim);font-size:15px;border-top:1px solid var(--line)}
+</style>
+<script type="application/ld+json">
+{
+ "@context":"https://schema.org",
+ "@graph":[
+  {
+   "@type":"SoftwareApplication",
+   "@id":"https://0xroots.github.io/imessage-mcp/#app",
+   "name":"iMessage MCP",
+   "url":"https://0xroots.github.io/imessage-mcp/",
+   "description":"A macOS app and MCP adapter that lets AI tools read and search your Messages and send messages after your confirmation, without Full Disk Access.",
+   "applicationCategory":"UtilitiesApplication",
+   "operatingSystem":"macOS 13 or later",
+   "license":"https://opensource.org/licenses/MIT",
+   "isAccessibleForFree":true,
+   "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+   "image":"https://0xroots.github.io/imessage-mcp/icon.png",
+   "codeRepository":"https://github.com/0xroots/imessage-mcp",
+   "sameAs":["https://github.com/0xroots/imessage-mcp"]
+  },
+  {
+   "@type":"FAQPage",
+   "mainEntity":[
+    {"@type":"Question","name":"Does iMessage MCP need Full Disk Access?","acceptedAnswer":{"@type":"Answer","text":"No. You pick your Messages folder once in a standard macOS file panel. The app keeps a read-only, app-scoped bookmark to that folder inside the App Sandbox."}},
+    {"@type":"Question","name":"Is my data sent anywhere?","acceptedAnswer":{"@type":"Answer","text":"The app has no network entitlement. Message text leaves your Mac only if the AI tool you connect sends it elsewhere, which is why every connection needs your approval and runs under limits you set."}},
+    {"@type":"Question","name":"Can an AI tool send messages without asking me?","acceptedAnswer":{"@type":"Answer","text":"No. Each message shows its exact recipient and full text in a confirmation window and is sent only after you press Send this message."}},
+    {"@type":"Question","name":"Which AI tools work with it?","acceptedAnswer":{"@type":"Answer","text":"Any client that supports stdio MCP servers, including Claude Code and Codex. Claude Code can install it as a plugin."}}
+   ]
+  }
+ ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header><img src="icon.png" alt="" width="44" height="44"><strong>iMessage MCP</strong></header>
+<main id="main">
+ <div class="hero">
+  <h1>iMessage for AI tools, without Full Disk Access</h1>
+  <p class="lead">iMessage MCP is a free, open-source macOS app and MCP server. It lets Claude Code, Codex or any MCP client read, search and send your Messages while your data stays on your Mac. You choose the folder, the limits and every approval.</p>
+  <p><a class="pill" href="#install">Install in two minutes</a><a class="pill alt" href="https://github.com/0xroots/imessage-mcp">View on GitHub</a></p>
+ </div>
+
+ <section aria-labelledby="why">
+  <h2 id="why">Your data stays safe</h2>
+  <div class="grid">
+   <div class="card c1"><h3>No Full Disk Access</h3><p>You pick the Messages folder in a normal macOS panel. The app gets a read-only, app-scoped bookmark and nothing else.</p></div>
+   <div class="card c2"><h3>No network</h3><p>The app runs in the macOS sandbox without a network entitlement.</p></div>
+   <div class="card c3"><h3>You approve every connection</h3><p>Pick selected chats or all chats, set a time limit and message limits. Stop with one click.</p></div>
+   <div class="card c4"><h3>Sending always asks</h3><p>The exact recipient and full text are shown. Nothing is sent until you press Send.</p></div>
+  </div>
+ </section>
+
+ <section aria-labelledby="how">
+  <h2 id="how">How it works</h2>
+  <ol>
+   <li><strong>Allow the Messages folder.</strong> One click, read-only.</li>
+   <li><strong>Start the AI bridge.</strong> You set the duration and the limits. A battery shows the time left.</li>
+   <li><strong>Connect your AI tool.</strong> The app asks you to approve the connection. Stop any time.</li>
+  </ol>
+ </section>
+
+ <section aria-labelledby="install">
+  <h2 id="install">Install</h2>
+  <p>You need macOS 13 or later and Xcode command line tools. A free Apple Development certificate is enough.</p>
+  <h3>1. Build and install the app</h3>
+<pre><code>git clone https://github.com/0xroots/imessage-mcp
+cd imessage-mcp
+export MSGLOCAL_SIGN_IDENTITY="Apple Development: Your Name (XXXXXXXXXX)"
+export MSGLOCAL_TEAM_ID="YOURTEAMID"
+./scripts/install.sh</code></pre>
+  <h3>2. Connect your AI tool</h3>
+  <p><strong>Claude Code plugin</strong></p>
+<pre><code>/plugin marketplace add 0xroots/imessage-mcp
+/plugin install imessage-mcp@imessage-mcp</code></pre>
+  <p><strong>Codex</strong></p>
+<pre><code>codex mcp add imessage-mcp -- /Applications/iMessageMCP.app/Contents/Helpers/messages-mcp \
+  "$HOME/Library/Containers/org.messageslocal.app/Data/tmp/messages-mcp.sock"</code></pre>
+  <p><strong>Any MCP client</strong>: add a stdio server with that command and socket path. See the <a href="https://github.com/0xroots/imessage-mcp/blob/main/docs/MCP_SETUP.md">setup guide</a>.</p>
+ </section>
+
+ <section aria-labelledby="tools">
+  <h2 id="tools">What your AI tool can do</h2>
+  <table>
+   <thead><tr><th scope="col">Tool</th><th scope="col">Purpose</th></tr></thead>
+   <tbody>
+    <tr><td><code>list_conversations</code></td><td>List the chats you allowed</td></tr>
+    <tr><td><code>get_messages</code></td><td>Read messages from an allowed chat, with paging</td></tr>
+    <tr><td><code>search_messages</code></td><td>Search text with direction and date filters</td></tr>
+    <tr><td><code>get_recent_messages</code></td><td>Messages since a date</td></tr>
+    <tr><td><code>get_attachment_metadata</code></td><td>Attachment names and types, never contents</td></tr>
+    <tr><td><code>send_message</code></td><td>Send one message after your on-screen confirmation</td></tr>
+   </tbody>
+  </table>
+ </section>
+
+ <section aria-labelledby="faq">
+  <h2 id="faq">Questions</h2>
+  <details><summary>Does iMessage MCP need Full Disk Access?</summary><p>No. You pick your Messages folder once in a standard macOS file panel. The app keeps a read-only, app-scoped bookmark to that folder inside the App Sandbox. This was verified on macOS 27.0.1 with real messages.</p></details>
+  <details><summary>Is my data sent anywhere?</summary><p>The app has no network entitlement. Message text leaves your Mac only if the AI tool you connect sends it elsewhere, which is why every connection needs your approval and runs under limits you set.</p></details>
+  <details><summary>Can an AI tool send messages without asking me?</summary><p>No. Each message shows its exact recipient and full text in a confirmation window and is sent only after you press Send this message. A sent message cannot be recalled, and the app cannot confirm delivery.</p></details>
+  <details><summary>Which AI tools work with it?</summary><p>Any client that supports stdio MCP servers, including Claude Code and Codex. Claude Code can install it as a plugin.</p></details>
+  <details><summary>What are the known limits?</summary><p>Some archived message bodies cannot be decoded yet and are marked unsupported. The request-ID journal holds 1,000 entries. Other processes running as you can start the adapter, so approve only requests you started. See the <a href="https://github.com/0xroots/imessage-mcp/blob/main/SECURITY.md">security notes</a>.</p></details>
+ </section>
+</main>
+<footer>iMessage MCP is open source under the MIT license. <a href="https://github.com/0xroots/imessage-mcp">Source code</a> · <a href="https://github.com/0xroots/imessage-mcp/blob/main/SECURITY.md">Security</a> · <a href="llms.txt">llms.txt</a></footer>
+</body>
+</html>

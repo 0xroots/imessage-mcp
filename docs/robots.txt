@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://0xroots.github.io/imessage-mcp/sitemap.xml

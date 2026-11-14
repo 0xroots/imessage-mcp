@@ -1,0 +1,14 @@
+// Template. scripts/build.sh fills the placeholders and compiles the result.
+// The adapter and the app verify each other's code signature against these
+// values, so a different process cannot impersonate either side.
+enum BuildIdentity {
+ static let teamID = "@TEAM_ID@"
+ static let appBundleID = "@APP_ID@"
+ static let adapterID = "@ADAPTER_ID@"
+ static var appRequirement: String {
+  "identifier \"\(appBundleID)\" and anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\""
+ }
+ static var adapterRequirement: String {
+  "identifier \"\(adapterID)\" and anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\""
+ }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "imessage-mcp",
+  "version": "0.2.0",
+  "description": "Read and search your Messages (iMessage/SMS) and send with confirmation, on macOS, without Full Disk Access. Requires the iMessage MCP app.",
+  "license": "MIT",
+  "keywords": [
+    "imessage",
+    "messages",
+    "mcp",
+    "macos",
+    "privacy",
+    "no-full-disk-access"
+  ],
+  "author": {
+    "name": "iMessage MCP contributors"
+  }
+}

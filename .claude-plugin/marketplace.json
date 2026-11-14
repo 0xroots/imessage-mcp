@@ -1,0 +1,16 @@
+{
+  "name": "imessage-mcp",
+  "owner": { "name": "iMessage MCP contributors" },
+  "metadata": {
+    "description": "Read and send iMessage/SMS from MCP clients on macOS without Full Disk Access. Local, sandboxed, owner-approved."
+  },
+  "plugins": [
+    {
+      "name": "imessage-mcp",
+      "source": "./plugins/imessage-mcp",
+      "description": "MCP server for your Messages on macOS. No Full Disk Access, no network, every connection and every sent message needs your approval.",
+      "category": "productivity",
+      "keywords": ["imessage", "messages", "mcp", "macos", "privacy", "no-full-disk-access"]
+    }
+  ]
+}

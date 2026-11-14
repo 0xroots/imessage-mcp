@@ -1,0 +1,15 @@
+build/
+*.app
+*.dSYM/
+.DS_Store
+._*
+__pycache__/
+*.pyc
+.env
+.env.*
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+chat.db*
+*.sqlite*
