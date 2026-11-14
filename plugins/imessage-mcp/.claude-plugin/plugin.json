@@ -18,5 +18,6 @@
   "displayName": "iMessage MCP for macOS (no Full Disk Access)",
   "icon": "./.claude-plugin/icon.png",
   "homepage": "https://github.com/0xroots/imessage-mcp",
-  "repository": "https://github.com/0xroots/imessage-mcp"
+  "repository": "https://github.com/0xroots/imessage-mcp",
+  "privacyPolicyUrl": "https://github.com/0xroots/imessage-mcp/blob/main/PRIVACY.md"
 }

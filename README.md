@@ -79,6 +79,10 @@ Limits apply across every connection for the whole run. Some message bodies use 
 
 Details, limits and the threat model: [SECURITY.md](SECURITY.md).
 
+## Privacy
+
+Everything runs on your Mac with no network code and no account. See [PRIVACY.md](PRIVACY.md).
+
 ## FAQ
 
 **Does it need Full Disk Access?** No. You choose the Messages folder in the standard file panel and the app gets a read-only, app-scoped bookmark.
