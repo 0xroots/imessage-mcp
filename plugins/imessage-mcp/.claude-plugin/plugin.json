@@ -12,6 +12,11 @@
     "no-full-disk-access"
   ],
   "author": {
-    "name": "iMessage MCP contributors"
-  }
+    "name": "0xroots",
+    "url": "https://github.com/0xroots"
+  },
+  "displayName": "iMessage MCP for macOS (no Full Disk Access)",
+  "icon": "./.claude-plugin/icon.png",
+  "homepage": "https://github.com/0xroots/imessage-mcp",
+  "repository": "https://github.com/0xroots/imessage-mcp"
 }

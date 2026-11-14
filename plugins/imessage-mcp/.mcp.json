@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "imessage-mcp": {
-      "command": "${IMESSAGE_MCP_APP:-/Applications/iMessageMCP.app}/Contents/Helpers/messages-mcp",
-      "args": ["${HOME}/Library/Containers/org.messageslocal.app/Data/tmp/messages-mcp.sock"]
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/start.sh"]
     }
   }
 }
