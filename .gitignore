@@ -13,3 +13,7 @@ __pycache__/
 *.provisionprofile
 chat.db*
 *.sqlite*
+*.p8
+*.key
+*.csr
+dist/

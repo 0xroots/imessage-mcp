@@ -8,6 +8,8 @@
 #
 # Optional: MSGLOCAL_APP_ID (default org.messageslocal.app), MSGLOCAL_ADAPTER_ID
 # (default org.messageslocal.mcp), MSGLOCAL_VERSION (default 0.2.0).
+# MSGLOCAL_RELEASE=1 signs with the hardened runtime and a secure timestamp
+# (required for notarization; see scripts/release.sh).
 set -euo pipefail
 
 : "${MSGLOCAL_SIGN_IDENTITY:?Set MSGLOCAL_SIGN_IDENTITY to a code-signing identity (see: security find-identity -v -p codesigning)}"
@@ -15,6 +17,8 @@ set -euo pipefail
 APP_ID="${MSGLOCAL_APP_ID:-org.messageslocal.app}"
 ADAPTER_ID="${MSGLOCAL_ADAPTER_ID:-org.messageslocal.mcp}"
 VERSION="${MSGLOCAL_VERSION:-0.2.0}"
+
+if [ "${MSGLOCAL_RELEASE:-0}" = "1" ]; then SIGN_OPTS=(--options runtime --timestamp); else SIGN_OPTS=(--timestamp=none); fi
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 out="$root/build"
@@ -40,8 +44,8 @@ xcrun swiftc -O "$root"/Sources/App/*.swift "$root"/Sources/Reader/*.swift "$roo
 xcrun swiftc -O "$root/Sources/Adapter/main.swift" "$gen/BuildIdentity.swift" -o "$app/Contents/Helpers/messages-mcp"
 
 find "$app" -name '._*' -delete
-codesign --force --sign "$MSGLOCAL_SIGN_IDENTITY" --identifier "$ADAPTER_ID" --timestamp=none "$app/Contents/Helpers/messages-mcp"
-codesign --force --sign "$MSGLOCAL_SIGN_IDENTITY" --entitlements "$root/Resources/MessagesLocal.entitlements" --timestamp=none "$app"
+codesign --force --sign "$MSGLOCAL_SIGN_IDENTITY" --identifier "$ADAPTER_ID" "${SIGN_OPTS[@]}" "$app/Contents/Helpers/messages-mcp"
+codesign --force --sign "$MSGLOCAL_SIGN_IDENTITY" --entitlements "$root/Resources/MessagesLocal.entitlements" "${SIGN_OPTS[@]}" "$app"
 find "$app" -name '._*' -delete
 codesign --verify --deep --strict "$app"
 final="$out/iMessageMCP.app"
