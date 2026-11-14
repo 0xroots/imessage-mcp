@@ -2,12 +2,19 @@ import Foundation
 import Darwin
 import Security
 
-// Explicitly started by the user; never a launch agent. One connection at a
-// time. The owner approves each connection, and all approvals share one run cap.
+// Explicitly started by the user; never a launch agent. Several clients (for
+// example Claude Code and Codex) can be connected at once. The owner approves each
+// connection, one approval dialog at a time, and all approvals share one run cap.
 final class LocalIPCServer {
  private let state = NSCondition()
  private var listener: Int32 = -1
- private var active: Int32 = -1
+ private var activeFDs = Set<Int32>()
+ private var connectionCount = 0
+ private var clientLabels: [UUID: String] = [:]
+ private static let maxConnections = 8
+ private let handlers = DispatchQueue(label: "messagesmcp.connections", qos: .userInitiated, attributes: .concurrent)
+ // Approval and send-confirmation dialogs never overlap, whichever connection asks.
+ private let approvalGate = NSLock()
  private var wakeRead: Int32 = -1
  private var wakeWrite: Int32 = -1
  private var running = false
@@ -123,7 +130,7 @@ final class LocalIPCServer {
   }
   guard bound == 0 else { return false }
   didBind = true
-  guard chmod(path, 0o600) == 0, listen(listenerFD, 1) == 0 else { return false }
+  guard chmod(path, 0o600) == 0, listen(listenerFD, 8) == 0 else { return false }
   let listenerFlags = fcntl(listenerFD, F_GETFL, 0)
   guard listenerFlags >= 0, fcntl(listenerFD, F_SETFL, listenerFlags | O_NONBLOCK) == 0 else { return false }
   guard authority.beginExplicitSession(limits: limits) else { return false }
@@ -153,7 +160,7 @@ final class LocalIPCServer {
   state.lock()
   running = false
   authority.endExplicitSession()
-  if active >= 0 { _ = shutdown(active, SHUT_RDWR) }
+  for fd in activeFDs { _ = shutdown(fd, SHUT_RDWR) }
   if wakeWrite >= 0 {
    var byte: UInt8 = 1
    _ = Darwin.write(wakeWrite, &byte, 1)
@@ -184,20 +191,34 @@ final class LocalIPCServer {
 
  private func serve(listener listenerFD: Int32, wakeRead wakeReadFD: Int32,
                     wakeWrite wakeWriteFD: Int32, path: String) {
-  defer { workerFinished(listener: listenerFD, wakeRead: wakeReadFD, wakeWrite: wakeWriteFD, path: path) }
+  defer {
+   // Connection handlers use the wake descriptor: wait for them before closing it.
+   state.lock()
+   let deadline = Date(timeIntervalSinceNow: 10)
+   while connectionCount > 0 && Date() < deadline { _ = state.wait(until: deadline) }
+   state.unlock()
+   workerFinished(listener: listenerFD, wakeRead: wakeReadFD, wakeWrite: wakeWriteFD, path: path)
+  }
   while isRunning() {
    guard let fd = nextConnection(listener: listenerFD, wakeRead: wakeReadFD) else { break }
    guard LocalSocketIO.setBlocking(fd) else { _ = close(fd); continue }
    state.lock()
-   guard running else { state.unlock(); _ = close(fd); break }
-   active = fd
+   if !running { state.unlock(); _ = close(fd); break }
+   if activeFDs.count >= Self.maxConnections { state.unlock(); _ = close(fd); continue }
+   activeFDs.insert(fd)
+   connectionCount += 1
    state.unlock()
 
-   process(fd, wakeRead: wakeReadFD)
-   state.lock()
-   if active == fd { active = -1 }
-   state.unlock()
-   _ = close(fd)
+   handlers.async { [self] in
+    process(fd, wakeRead: wakeReadFD)
+    // Leave the set before closing so Stop can never shut down a reused descriptor.
+    state.lock()
+    activeFDs.remove(fd)
+    connectionCount -= 1
+    state.broadcast()
+    state.unlock()
+    _ = close(fd)
+   }
   }
  }
 
@@ -265,9 +286,11 @@ final class LocalIPCServer {
    return true
   }
   var selected: SessionAuthority.Mode?
+  approvalGate.lock()
   DispatchQueue.main.sync {
    if stillConnected() { selected = self.choose(stillConnected) }
   }
+  approvalGate.unlock()
   guard let selected, stillConnected(),
         authority.grant(connection: connection, mode: selected,
                         seconds: Double(limits.durationSeconds), ownerConfirmed: true, warningConfirmed: true) else { return }
@@ -275,7 +298,7 @@ final class LocalIPCServer {
   // Client label is display-only: printable ASCII, short. It never affects authorization.
   let rawClient = ((try? JSONSerialization.jsonObject(with: firstLine)) as? [String: Any])?["client"] as? String ?? ""
   let clientLabel = String(rawClient.unicodeScalars.filter { $0.value >= 32 && $0.value < 127 }.prefix(40))
-  DispatchQueue.main.async { [weak self] in self?.onClient(clientLabel.isEmpty ? "AI tool" : clientLabel) }
+  setClient(connection, clientLabel.isEmpty ? "AI tool" : clientLabel)
   var pending: Data? = firstLine
   while isRunning() {
    let received = pending ?? LocalSocketIO.readLine(fd, limit: 65_536)
@@ -299,13 +322,24 @@ final class LocalIPCServer {
    guard data.count <= limits.maxResponseBytes, isRunning() else { break }
    data.append(10)
    let writer = RevocableSocketWriter(lock: state, wakeDescriptor: wakeReadFD) {
-    self.running && self.active == fd && self.authority.currentMode(connection: connection) != nil
+    self.running && self.activeFDs.contains(fd) && self.authority.currentMode(connection: connection) != nil
    }
    if !writer.send(data, to: fd) { break }
   }
   authority.revoke(connection)
   MessageDispatchPolicy.shared.disconnect(connectionID:connection)
-  DispatchQueue.main.async { [weak self] in self?.onClient(nil) }
+  setClient(connection, nil)
+ }
+
+ // Shows every connected client, e.g. "Claude, codex".
+ private func setClient(_ connection: UUID, _ label: String?) {
+  state.lock()
+  clientLabels[connection] = label
+  var seen = Set<String>()
+  let names = clientLabels.values.sorted().filter { seen.insert($0).inserted }
+  state.unlock()
+  let text = names.isEmpty ? nil : names.joined(separator: ", ")
+  DispatchQueue.main.async { [weak self] in self?.onClient(text) }
  }
 
  // The permission to read a chat never authorizes sending: every send has a
@@ -329,16 +363,18 @@ final class LocalIPCServer {
   defer{policy.cancel(token:token)}
   let approvalAlive: () -> Bool = { stillConnected() && self.authority.isCurrent(ticket) && ProcessInfo.processInfo.systemUptime < started + MessageDispatchPolicy.approvalLifetime }
   var confirmed=false
+  approvalGate.lock()
   DispatchQueue.main.sync {
    if approvalAlive() {confirmed=self.confirmSend(recipient,text,approvalAlive)}
   }
+  approvalGate.unlock()
   guard confirmed,approvalAlive(),policy.approve(token:token,requestID:requestID,recipient:recipient,text:text,connectionID:connection) else{return BackendRouter.error("send_not_approved")}
   // Commit is ordered against Stop. Once committed, an OS send cannot be
   // recalled; connection failure afterwards is treated as unknown, never retry.
   let canDispatch: () -> Bool = {
    guard stillConnected() else { return false }
    self.state.lock(); defer { self.state.unlock() }
-   return self.running && self.active==fd && self.authority.isCurrent(ticket) && policy.consume(token:token,requestID:requestID,recipient:recipient,text:text,connectionID:connection)
+   return self.running && self.activeFDs.contains(fd) && self.authority.isCurrent(ticket) && policy.consume(token:token,requestID:requestID,recipient:recipient,text:text,connectionID:connection)
   }
   guard stillConnected(),authority.isCurrent(ticket) else{return BackendRouter.error("access_revoked")}
   let outcome=sendText(recipient,text,canDispatch)
@@ -357,7 +393,7 @@ final class LocalIPCServer {
   if listener == listenerFD { listener = -1 }
   if wakeRead == wakeReadFD { wakeRead = -1 }
   if wakeWrite == wakeWriteFD { wakeWrite = -1 }
-  active = -1
+  activeFDs.removeAll()
   state.unlock()
 
   _ = close(listenerFD)
