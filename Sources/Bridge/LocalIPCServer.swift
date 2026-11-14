@@ -41,6 +41,35 @@ final class LocalIPCServer {
   self.choose = choose
  }
 
+ // A socket file left behind by a crashed or force-quit run blocks the next start.
+ // Remove it only when it is our own socket and nothing is listening on it.
+ private static func clearStaleSocket(at path: String) -> Bool {
+  var st = stat()
+  if lstat(path, &st) != 0 { return errno == ENOENT }
+  guard (st.st_mode & S_IFMT) == S_IFSOCK, st.st_uid == getuid() else { return false }
+  let probe = socket(AF_UNIX, SOCK_STREAM, 0)
+  guard probe >= 0 else { return false }
+  defer { _ = close(probe) }
+  var address = sockaddr_un()
+  address.sun_family = sa_family_t(AF_UNIX)
+  address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
+  let bytes = Array(path.utf8) + [0]
+  withUnsafeMutableBytes(of: &address.sun_path) { buffer in
+   for index in bytes.indices { buffer[index] = bytes[index] }
+  }
+  let rc = withUnsafePointer(to: &address) {
+   $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+    connect(probe, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+   }
+  }
+  // A live listener means another copy of the app is running the bridge: leave it alone.
+  guard rc != 0, errno == ECONNREFUSED else { return false }
+  return unlink(path) == 0
+ }
+
+ // True once if a client asked for more message slots than the run has left.
+ func takeBudgetDenied() -> Bool { authority.takeBudgetDenied() }
+
  func start() -> Bool {
   state.lock()
   if workerActive {
@@ -70,8 +99,7 @@ final class LocalIPCServer {
   }
 
   guard path.utf8.count < 103 else { return false }
-  var st = stat()
-  guard lstat(path, &st) != 0 && errno == ENOENT else { return false }
+  guard Self.clearStaleSocket(at: path) else { return false }
   listenerFD = socket(AF_UNIX, SOCK_STREAM, 0)
   guard listenerFD >= 0 else { return false }
   guard socketpair(AF_UNIX, SOCK_STREAM, 0, &wakeFDs) == 0 else { return false }

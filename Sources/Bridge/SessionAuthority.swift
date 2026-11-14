@@ -15,6 +15,11 @@ final class SessionAuthority {
    maxResponseBytes: 65_536
   )!
 
+  // Owner chose "no limits": quotas are lifted except the ceilings that are
+  // technical (100 results per call, 120 KiB reply). Connections still need approval.
+  static let unlimited = Limits(unchecked: 100, 1_000_000_000, 1_000_000, 10 * 365 * 86_400, 120 * 1_024)
+  var isUnlimited: Bool { self == Limits.unlimited }
+
   static let hardMaxMessagesPerRequest = 100
   static let hardMaxMessagesPerSession = 500
   static let hardMaxRequestsPerMinute = 60
@@ -29,6 +34,14 @@ final class SessionAuthority {
   let requestsPerMinute: Int
   let durationSeconds: Int
   let maxResponseBytes: Int
+
+  private init(unchecked perRequest: Int, _ perSession: Int, _ perMinute: Int, _ seconds: Int, _ bytes: Int) {
+   maxMessagesPerRequest = perRequest
+   maxMessagesPerSession = perSession
+   requestsPerMinute = perMinute
+   durationSeconds = seconds
+   maxResponseBytes = bytes
+  }
 
   init?(maxMessagesPerRequest: Int,
         maxMessagesPerSession: Int,
@@ -102,9 +115,19 @@ final class SessionAuthority {
 
  // Called only after the owner chooses Start AI bridge and accepts limits.
  // A second active run cannot replace or reset the first run's counters.
+ // Set when a client asked for more message slots than the run has left; the app
+ // reads it once to ask the owner for a new approval.
+ private var budgetDenied = false
+ func takeBudgetDenied() -> Bool {
+  lock.lock(); defer { lock.unlock() }
+  defer { budgetDenied = false }
+  return budgetDenied
+ }
+
  func beginExplicitSession(limits: Limits) -> Bool {
   lock.lock(); defer { lock.unlock() }
   guard run == nil else { return false }
+  budgetDenied = false
   let now = clock()
   run = ExplicitRun(generation: UUID(), limits: limits, expires: now + Double(limits.durationSeconds),
                     bucketStart: now, requestCount: 0, reservedMessages: 0)
@@ -120,7 +143,8 @@ final class SessionAuthority {
 
  func grant(connection: UUID, mode: Mode, seconds: TimeInterval,
             ownerConfirmed: Bool, warningConfirmed: Bool) -> Bool {
-  guard ownerConfirmed, seconds > 0, seconds <= Double(Limits.hardMaxDurationSeconds) else { return false }
+  // The run-wide bound below (never above the hard maximum for custom limits) caps the grant.
+  guard ownerConfirmed, seconds > 0 else { return false }
   switch mode {
   case .full:
    guard warningConfirmed else { return false }
@@ -213,8 +237,11 @@ final class SessionAuthority {
   guard let session = sessions[ticket.connection], session.generation == ticket.generation,
         session.runGeneration == ticket.runGeneration,
         var activeRun = run, activeRun.generation == ticket.runGeneration,
-        now < session.expires, now < activeRun.expires,
-        count <= activeRun.limits.maxMessagesPerSession - activeRun.reservedMessages else { return false }
+        now < session.expires, now < activeRun.expires else { return false }
+  guard count <= activeRun.limits.maxMessagesPerSession - activeRun.reservedMessages else {
+   budgetDenied = true
+   return false
+  }
   activeRun.reservedMessages += count
   run = activeRun
   return true

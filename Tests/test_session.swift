@@ -98,6 +98,27 @@ import Foundation
                            ownerConfirmed: true, warningConfirmed: false))
   precondition(exact.ticket(connection: x, chat: "e\u{301}") == nil)
   exact.endExplicitSession()
+  // Budget exhaustion is reported once so the app can ask for a new approval.
+  let budget = SessionAuthority(clock: { now })
+  precondition(budget.beginExplicitSession(limits: limits))
+  precondition(budget.grant(connection: x, mode: .assisted(["a"]), seconds: 120, ownerConfirmed: true, warningConfirmed: false))
+  let bt = budget.ticket(connection: x, chat: "a")!
+  precondition(budget.reserveMessages(bt, count: 2))
+  precondition(!budget.takeBudgetDenied())
+  precondition(!budget.reserveMessages(bt, count: 2))
+  precondition(budget.takeBudgetDenied() && !budget.takeBudgetDenied())
+  budget.endExplicitSession()
+
+  // "No limits": large quotas and a long run, grants longer than the hard maximum are allowed.
+  let free = SessionAuthority(clock: { now })
+  let unlimited = SessionAuthority.Limits.unlimited
+  precondition(unlimited.isUnlimited && !limits.isUnlimited)
+  precondition(free.beginExplicitSession(limits: unlimited))
+  precondition(free.grant(connection: x, mode: .assisted(["a"]), seconds: Double(unlimited.durationSeconds),
+                          ownerConfirmed: true, warningConfirmed: false))
+  let ft = free.ticket(connection: x, chat: "a")!
+  precondition(free.reserveMessages(ft, count: 100) && free.reserveMessages(ft, count: 100))
+  free.endExplicitSession()
   print("PASS owner start, hard limits, reconnect quotas, rate window, expiry, exact allowlist and cursor rotation")
  }
 }

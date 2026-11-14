@@ -371,6 +371,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
    hero.level = 0.12
    return
   }
+  if ipcServer?.takeBudgetDenied() == true { offerNewRun(reason: "The AI client used all message slots of this run.", limits: limits) }
+  if limits.isUnlimited {
+   battery.level = 1; battery.color = Theme.teal; hero.level = 1
+   batteryText.stringValue = "No limit"
+   return
+  }
   let total = Double(limits.durationSeconds)
   let remaining = max(0, total - Date().timeIntervalSince(started))
   let fraction = CGFloat(remaining / total)
@@ -533,6 +539,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
   if ipcServer != nil { stopBridge(); return }
   guard let (url, active) = resolve(), active else { refreshFolderState(); render(); return }
   guard let limits = BridgeLimitsChooser.prompt() else { url.stopAccessingSecurityScopedResource(); return }
+  launchBridge(url: url, limits: limits)
+ }
+
+ // Starts a bridge run on an already resolved folder. Used for the first start and
+ // when the owner approves a new run after the limits ran out.
+ func launchBridge(url: URL, limits: SessionAuthority.Limits) {
   let server = LocalIPCServer(folder: url, filename: "chat.db", limits: limits,
    onRunExpired: { [weak self] in self?.bridgeExpired() },
    onClient: { [weak self] name in self?.clientName = name; self?.render() },
@@ -549,7 +561,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
    }) { [weak self] alive in self?.approveBridgeConnection(stillConnected: alive) }
   guard server.start() else {
    url.stopAccessingSecurityScopedResource()
-   message("The bridge did not start", "A previous connection may still be closing. Wait a moment and try again.")
+   message("The bridge did not start", "Another copy of the app may be running the bridge, or a previous connection is still closing. Quit the other copy or wait a moment, then try again.")
    return
   }
   ipcFolder = url; ipcLimits = limits; ipcServer = server; bridgeStarted = Date()
@@ -568,15 +580,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
 
  func bridgeExpired() {
   guard ipcServer != nil else { return }
+  let last = ipcLimits
   ipcServer = nil
   ipcFolder?.stopAccessingSecurityScopedResource(); ipcFolder = nil
   ipcLimits = nil; bridgeStarted = nil; clientName = nil
   ticker?.invalidate(); ticker = nil
   render()
+  if let last { offerNewRun(reason: "The time limit of this run has ended.", limits: last) }
+ }
+
+ private var newRunPromptOpen = false
+
+ // The limits ran out: the AI client cannot continue until the owner approves again.
+ // A new run resets the counters and every connection asks for approval once more.
+ func offerNewRun(reason: String, limits: SessionAuthority.Limits) {
+  guard !newRunPromptOpen else { return }
+  newRunPromptOpen = true
+  defer { newRunPromptOpen = false }
+  showWindow()
+  let alert = NSAlert()
+  alert.icon = NSApp.applicationIconImage
+  alert.messageText = "New approval needed"
+  alert.informativeText = "\(reason) The AI client cannot read or send messages until you approve a new run. Each connection will ask for your approval again."
+  alert.addButton(withTitle: "Approve new run")
+  alert.addButton(withTitle: "Stop bridge")
+  alert.addButton(withTitle: "Change limits…")
+  NSApp.activate(ignoringOtherApps: true)
+  switch alert.runModal() {
+  case .alertFirstButtonReturn:
+   stopBridge()
+   guard let (url, active) = resolve(), active else { refreshFolderState(); render(); return }
+   launchBridge(url: url, limits: limits)
+  case .alertThirdButtonReturn:
+   stopBridge()
+   toggleBridge()
+  default:
+   stopBridge()
+  }
  }
 
  func bridgeLimitsDescription() -> String {
   guard let limits = ipcLimits else { return "Shared bridge quotas apply." }
+  if limits.isUnlimited { return "No run caps: quotas are lifted, only the 100 results per call and 120 KiB reply ceilings apply." }
   return "Run caps: \(limits.maxMessagesPerRequest) message slots per request, \(limits.maxMessagesPerSession) per run, \(limits.requestsPerMinute) requests/minute, \(limits.durationSeconds / 60) minutes, and \(limits.maxResponseBytes / 1_024) KiB backend JSON."
  }
 
