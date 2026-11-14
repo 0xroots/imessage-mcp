@@ -14,9 +14,19 @@ You pick your Messages folder once in a normal macOS panel. The app keeps a read
 
 ## Install
 
-Requires macOS 13 or later and Xcode command line tools. A free Apple Development certificate is enough.
+Requires macOS 13 or later.
 
-**1. Build and install the app** (one command, also builds the plugin adapter)
+**1. Install the app**
+
+Option A, download (signed and notarized by Apple, nothing to build):
+
+```bash
+brew install --cask 0xroots/tap/imessage-mcp
+```
+
+or download the DMG from the [latest release](https://github.com/0xroots/imessage-mcp/releases/latest) and drag **iMessage MCP** to Applications. The checksum is published next to the DMG.
+
+Option B, build from source (needs Xcode command line tools; a free Apple Development certificate is enough):
 
 ```bash
 git clone https://github.com/0xroots/imessage-mcp
