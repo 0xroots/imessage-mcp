@@ -3,7 +3,7 @@
   "name": "io.github.0xroots/imessage-mcp",
   "title": "iMessage MCP",
   "description": "Read, search and send iMessage on macOS without Full Disk Access. Needs the iMessage MCP app.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "repository": {
     "url": "https://github.com/0xroots/imessage-mcp",
     "source": "github"
@@ -12,8 +12,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/0xroots/imessage-mcp/releases/download/v0.2.0/imessage-mcp-0.2.0.mcpb",
-      "fileSha256": "b0709a9a1aa2dfef65bb6ed6f0b9899ff80b273326e29ac6dec3f686208a6171",
+      "identifier": "https://github.com/0xroots/imessage-mcp/releases/download/v0.2.1/imessage-mcp-0.2.1.mcpb",
+      "fileSha256": "49099b11e9e17be4c1749e572d601a4d8f79b367d629ea4d16efb3f5b6641f77",
       "transport": {
         "type": "stdio"
       }
