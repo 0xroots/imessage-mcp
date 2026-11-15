@@ -1,11 +1,21 @@
 {
-  "name": "imessage-mcp-skill",
+  "name": "messages-no-fda-guide",
   "version": "0.2.3",
   "description": "Guidance for reading, searching and sending iMessage/SMS on macOS through the iMessage MCP app, which needs no Full Disk Access. The app and its MCP server are installed separately.",
   "license": "MIT",
-  "keywords": ["imessage", "messages", "mcp", "macos", "privacy", "no-full-disk-access"],
-  "author": { "name": "0xroots", "url": "https://github.com/0xroots" },
-  "displayName": "iMessage MCP guide",
+  "keywords": [
+    "imessage",
+    "messages",
+    "mcp",
+    "macos",
+    "privacy",
+    "no-full-disk-access"
+  ],
+  "author": {
+    "name": "0xroots",
+    "url": "https://github.com/0xroots"
+  },
+  "displayName": "Messages guide for Mac (no Full Disk Access)",
   "icon": "./.claude-plugin/icon.png",
   "homepage": "https://github.com/0xroots/imessage-mcp",
   "repository": "https://github.com/0xroots/imessage-mcp",
