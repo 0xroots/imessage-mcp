@@ -19,6 +19,10 @@ iMessage MCP runs entirely on your Mac. It has no server, no account, no analyti
 - A message is sent only after you confirm its recipient and text in an on-screen dialog. It is handed to the Messages app through a single Apple Event.
 - The app makes no other outbound connections.
 
+## Reading messages on screen
+
+The app's own message browser opens only after you confirm with Touch ID or your Mac password, its window cannot be captured by other apps, and it locks itself after 5 minutes without use. Software that drives your screen, including AI assistants, cannot pass the confirmation. AI tools should read messages through the MCP bridge, where you approve every connection.
+
 ## Retention and deletion
 
 - The app keeps no copy of your messages. Quit the bridge to close all connections; remove the app and its container folder (`~/Library/Containers/org.messageslocal.app`) to delete everything it stored.

@@ -527,10 +527,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
 
  @objc func openLocalBrowser() {
   if let existing = browser?.window, existing.isVisible { existing.makeKeyAndOrderFront(nil); return }
-  guard let (url, active) = resolve(), active else { refreshFolderState(); render(); return }
-  let controller = LocalBrowserWindow(folder: url)
-  browser = controller
-  controller.show()
+  // Reading messages on screen needs the owner: Touch ID or the Mac password.
+  OwnerPresence.confirm(reason: "Open your messages in iMessage MCP") { [weak self] ok in
+   guard let self else { return }
+   guard ok else {
+    self.message("Messages stay locked", "Confirm with Touch ID or your Mac password to browse messages. If this Mac has no login password, set one first.")
+    return
+   }
+   guard let (url, active) = self.resolve(), active else { self.refreshFolderState(); self.render(); return }
+   let controller = LocalBrowserWindow(folder: url)
+   self.browser = controller
+   controller.show()
+  }
  }
 
  // MARK: AI bridge

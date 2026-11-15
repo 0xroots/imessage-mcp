@@ -23,6 +23,9 @@ final class LocalBrowserWindow:NSObject,NSWindowDelegate {
  func show() {
   window=NSWindow(contentRect:NSRect(x:130,y:130,width:900,height:650),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
   window.title="Messages — Local Only";window.delegate=self
+  // Other apps cannot capture or record this window, and it locks itself when left alone.
+  window.sharingType = .none
+  startAutoLock()
   popup=NSPopUpButton(frame:NSRect(x:15,y:605,width:300,height:30));popup.target=self;popup.action=#selector(selectConversation);window.contentView?.addSubview(popup)
   search=NSSearchField(frame:NSRect(x:325,y:605,width:275,height:30));search.placeholderString="Search messages";window.contentView?.addSubview(search)
   scope=NSPopUpButton(frame:NSRect(x:610,y:605,width:145,height:30));scope.addItems(withTitles:["Current chat","All chats"]);window.contentView?.addSubview(scope)
@@ -64,5 +67,21 @@ final class LocalBrowserWindow:NSObject,NSWindowDelegate {
    note.stringValue="Local only · Scanned up to 200 messages · Unsupported in this batch: \(page.unsupportedCount) · \(cursor == nil ? "End of scan":"Use Load next to continue") · AI unavailable"
   } catch {note.stringValue="Read stopped: access, WAL/SHM integrity, invalid dates, or database compatibility issue."}
  }
- func windowWillClose(_ notification:Notification){folder.stopAccessingSecurityScopedResource()}
+ private var lastActivity=Date()
+ private var lockTimer:Timer?
+ private var activityMonitor:Any?
+ private func startAutoLock() {
+  lastActivity=Date()
+  activityMonitor=NSEvent.addLocalMonitorForEvents(matching:[.keyDown,.leftMouseDown,.scrollWheel]){[weak self] event in self?.lastActivity=Date();return event}
+  lockTimer=Timer.scheduledTimer(withTimeInterval:15,repeats:true){[weak self] _ in
+   guard let self,Date().timeIntervalSince(self.lastActivity)>=300 else{return}
+   self.window.close()
+  }
+ }
+ func windowWillClose(_ notification:Notification){
+  lockTimer?.invalidate();lockTimer=nil
+  if let monitor=activityMonitor {NSEvent.removeMonitor(monitor);activityMonitor=nil}
+  textView.string="";chats=[]
+  folder.stopAccessingSecurityScopedResource()
+ }
 }

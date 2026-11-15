@@ -82,7 +82,7 @@ Details, limits and the threat model: [SECURITY.md](SECURITY.md).
 
 ## Privacy
 
-Everything runs on your Mac with no network code and no account. See [PRIVACY.md](PRIVACY.md).
+Everything runs on your Mac with no network code and no account. The message browser needs Touch ID or your Mac password, so an AI that controls your screen cannot read messages around the bridge. See [PRIVACY.md](PRIVACY.md).
 
 ## FAQ
 
