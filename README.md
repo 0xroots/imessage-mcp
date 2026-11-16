@@ -47,6 +47,7 @@ Your identity and Team ID stay in your shell, never in the repository. The app a
 | **Claude Code** (command) | `claude mcp add --scope user --transport stdio imessage-mcp -- /Applications/iMessageMCP.app/Contents/Helpers/messages-mcp "$HOME/Library/Containers/org.messageslocal.app/Data/tmp/messages-mcp.sock"` |
 | **Codex** (plugin) | `codex plugin marketplace add 0xroots/imessage-mcp` then `codex plugin add imessage-mcp@imessage-mcp` |
 | **Codex** (command) | `codex mcp add imessage-mcp -- /Applications/iMessageMCP.app/Contents/Helpers/messages-mcp "$HOME/Library/Containers/org.messageslocal.app/Data/tmp/messages-mcp.sock"` |
+| **ChatGPT and dots** | Through OpenAI's Secure MCP Tunnel: `./scripts/chatgpt-tunnel.sh`. See [docs/CHATGPT.md](docs/CHATGPT.md) |
 | **Any MCP client** | Add a stdio server with the same command and one argument, the socket path. See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) |
 
 The plugin adds the MCP server and a skill that teaches the assistant the safe way to use it. It needs the app from step 1. If you installed the app somewhere else, set `IMESSAGE_MCP_APP` to its path.
@@ -67,7 +68,7 @@ The plugin adds the MCP server and a skill that teaches the assistant the safe w
 | `search_messages` | Search text, with direction and date filters |
 | `get_recent_messages` | Messages since a date |
 | `get_attachment_metadata` | Attachment names, types and sizes, with an index for each |
-| `get_attachment` | One photo or PDF as images and text. Off unless you tick *Allow reading photos and PDFs* when you start the bridge |
+| `get_attachment` | One photo or PDF as images and text. On by default; switch it off in the start dialog or any time with *Photos and PDFs for AI* in the app window |
 | `send_message` | Send one message after your on-screen confirmation |
 
 Limits apply across every connection for the whole run. Some message bodies use formats that cannot be decoded yet; they are returned as unsupported and are never guessed.
@@ -95,7 +96,7 @@ Everything runs on your Mac with no network code and no account. The message bro
 
 **Which AI tools work?** Any client that supports stdio MCP servers, including Claude Code and Codex.
 
-**What does it not do?** It reads attachment contents only when you allow it for a bridge run (photos and PDFs up to 15 MB each, 40 MB per run), never video or audio, cannot decode every archived message body yet, and cannot confirm delivery of sent messages.
+**What does it not do?** It reads attachment contents only for photos and PDFs (up to 15 MB each, 40 MB per run) while the *Photos and PDFs for AI* switch is on, never video or audio, cannot decode every archived message body yet, and cannot confirm delivery of sent messages.
 
 ## Development
 

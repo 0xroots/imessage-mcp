@@ -158,6 +158,9 @@ final class LocalIPCServer {
 
  // Stop revokes the authority before waking the worker. The worker owns and
  // closes listener/wake descriptors after it exits, preventing FD reuse races.
+ // Live owner switch for photos and PDFs; takes effect on the next request.
+ func setAttachmentAccess(_ bytes: Int) { authority.setAttachmentBytes(bytes) }
+
  func stop() {
   state.lock()
   running = false

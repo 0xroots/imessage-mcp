@@ -6,7 +6,7 @@ iMessage MCP runs entirely on your Mac. It has no server, no account, no analyti
 
 - Messages you choose to expose, from the Messages folder you grant to the app. Access is read-only and limited to that folder through a sandbox grant; the app does not use Full Disk Access.
 - For each allowed chat: its group name and the phone numbers or emails of its members, shown to the connected tool so it can find the right chat. Contact names are not read.
-- Photos and PDFs from allowed chats, only if you tick "Allow reading photos and PDFs" when you start the bridge. They are converted to small JPEG images and extracted text in memory, up to 15 MB per file and the run's byte allowance, and are not stored. Videos and audio are never read.
+- Photos and PDFs from allowed chats, while the "Photos and PDFs for AI" switch is on (it is on by default and can be turned off at any time). They are converted to small JPEG images and extracted text in memory, up to 15 MB per file and the run's byte allowance, and are not stored. Videos and audio are never read.
 - Only after you approve a connection in the app window, and only for the chat or chats you select. You can deny or end a connection at any time.
 
 ## What it stores

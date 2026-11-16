@@ -11,7 +11,7 @@ Please open a private security advisory on the repository, or contact the mainta
 - **Owner approval per connection.** Each new connection needs approval for selected chats or all chats. Approvals do not persist after the bridge stops.
 - **Limits.** Time, message slots per request and per run, requests per minute and response size are set by the owner on every start and apply across reconnects.
 - **Attachments.**
-  - Off by default. The owner enables them per bridge run with a checkbox and a byte allowance (40 MB by default), on top of the per-connection approval and chat selection.
+  - On by default in the start dialog with a byte allowance (40 MB per run); the owner can switch them off at start or at any time in the app window, and the switch applies to the next request. Connection approval and chat selection still apply.
   - Only photos (decoded and re-encoded as small JPEG) and PDFs (text and the first pages as JPEG). Video, audio and other types are refused; the file type is decided from the content, not the stored MIME label.
   - A file must sit under `Attachments/` inside the granted folder. Paths with `..`, symlinks and anything resolving outside are refused; files over 15 MB are refused. Raw files and file paths are never returned.
 - **Sending.**

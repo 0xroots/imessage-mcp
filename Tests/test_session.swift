@@ -125,6 +125,8 @@ import Foundation
   let fc = UUID(); precondition(files.grant(connection: fc, mode: .full, seconds: 60, ownerConfirmed: true, warningConfirmed: true))
   let fticket = files.ticket(connection: fc, chat: nil)!
   precondition(files.reserveAttachmentBytes(fticket, count: 600) && !files.reserveAttachmentBytes(fticket, count: 600) && files.reserveAttachmentBytes(fticket, count: 400))
+  files.setAttachmentBytes(0); precondition(!files.attachmentsEnabled && !files.reserveAttachmentBytes(fticket, count: 1))
+  files.setAttachmentBytes(5_000); precondition(files.attachmentsEnabled && files.reserveAttachmentBytes(fticket, count: 1))
   files.endExplicitSession()
   let off = SessionAuthority(); precondition(off.beginExplicitSession(limits: .defaults))
   let oc = UUID(); precondition(off.grant(connection: oc, mode: .full, seconds: 60, ownerConfirmed: true, warningConfirmed: true))

@@ -46,6 +46,7 @@ enum BridgeLimitsChooser {
   // Attachments are a separate, explicit choice: they can contain far more than text.
   let attachmentsBox = NSButton(checkboxWithTitle: "Allow reading photos and PDFs from allowed chats (up to 40 MB per run)", target: nil, action: nil)
   attachmentsBox.frame = NSRect(x: 0, y: 6, width: 460, height: 24)
+  attachmentsBox.state = .on  // on by default; the owner can switch it off here or later in the main window
   accessory.addSubview(attachmentsBox)
   alert.accessoryView = accessory
   let attachmentBytes = 40 * 1_024 * 1_024

@@ -97,7 +97,7 @@ enum BackendRouter {
 
    case "get_attachment":
     // Reads the file only when the owner enabled attachments for this bridge run.
-    guard ticket.limits.attachmentBytes>0 else{return error("attachments_disabled")}
+    guard authority.attachmentsEnabled else{return error("attachments_disabled")}
     guard let id=args["message_id"] as? NSNumber,CFGetTypeID(id) != CFBooleanGetTypeID(),id.int64Value>0,id.doubleValue==Double(id.int64Value),let chat else{return error("message_required")}
     var attachmentIndex=0
     if let raw=args["attachment_index"] {

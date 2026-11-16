@@ -1,33 +1,51 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "imessage-mcp",
-  "version": "0.2.0",
-  "description": "Read, search and send iMessage on macOS without Full Disk Access. Requires the iMessage MCP app.",
-  "author": { "name": "0xroots", "url": "https://github.com/0xroots" },
+  "version": "0.4.0",
+  "description": "Read, search and send iMessage, including photos and PDFs, on macOS without Full Disk Access. Requires the iMessage MCP app.",
+  "author": {
+    "name": "0xroots",
+    "url": "https://github.com/0xroots"
+  },
   "homepage": "https://github.com/0xroots/imessage-mcp",
   "repository": "https://github.com/0xroots/imessage-mcp",
   "license": "MIT",
-  "keywords": ["imessage", "messages", "mcp", "macos", "privacy", "no-full-disk-access"],
+  "keywords": [
+    "imessage",
+    "messages",
+    "mcp",
+    "macos",
+    "privacy",
+    "no-full-disk-access"
+  ],
   "extensions": {
     "com.openai": {
-      "requires_local_executor": true,
-      "interface": {
-        "displayName": "iMessage MCP",
-        "shortDescription": "Read, search and send iMessage without Full Disk Access",
-        "longDescription": "Connects Codex to the iMessage MCP macOS app: a sandboxed app with a read-only grant to your Messages folder. Every connection and every send needs your approval in the app. Install the app first, then switch the bridge on in its window.",
-        "developerName": "0xroots",
-        "category": "Productivity",
-        "capabilities": ["Read", "Write"],
-        "websiteURL": "https://0xroots.github.io/imessage-mcp/",
-        "privacyPolicyURL": "https://github.com/0xroots/imessage-mcp/blob/main/PRIVACY.md",
-        "defaultPrompt": [
-          "Use iMessage MCP to list my recent conversations.",
-          "Use iMessage MCP to search my messages for a keyword."
-        ],
-        "brandColor": "#0B0B1A",
-        "composerIcon": "./assets/icon.png",
-        "logo": "./assets/icon.png"
-      }
+      "requires_local_executor": true
     }
-  }
+  },
+  "interface": {
+    "displayName": "iMessage MCP",
+    "shortDescription": "Read, search and send iMessage, with photos and PDFs",
+    "longDescription": "Gives Codex and ChatGPT agents access to your Messages through the iMessage MCP macOS app: chats, search, photos and PDFs, and sending with on-screen confirmation. The app runs in the macOS sandbox, needs no Full Disk Access, and asks you to approve every connection and every message sent.",
+    "developerName": "0xroots",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://0xroots.github.io/imessage-mcp/",
+    "privacyPolicyURL": "https://github.com/0xroots/imessage-mcp/blob/main/PRIVACY.md",
+    "defaultPrompt": [
+      "Show the latest messages in my chat named ADA and tell me what is needed from me.",
+      "Read the attachments in that chat and summarize them.",
+      "Search my messages for 'invoice' from the last month."
+    ],
+    "brandColor": "#0B0B1A",
+    "composerIcon": "./assets/icon-512.png",
+    "logo": "./assets/icon-512.png",
+    "termsOfServiceURL": "https://github.com/0xroots/imessage-mcp/blob/main/LICENSE",
+    "screenshots": []
+  },
+  "skills": "./skills/",
+  "mcpServers": "./mcp.json"
 }

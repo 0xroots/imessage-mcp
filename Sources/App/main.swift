@@ -35,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
  var clientName: String?
  var clientRow: NSTextField!
  var statusBox: NSStackView!
+ var attachmentSwitch: NSButton!
  var statusItem: NSStatusItem?
  var coach: NSPanel?
  var previewOn = false   // design snapshots only (MSGLOCAL_SNAPSHOT)
@@ -99,7 +100,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
   statusLeft.orientation = .vertical
   statusLeft.alignment = .leading
   statusLeft.spacing = 4
-  let statusRight = NSStackView(views: [batteryRow, clientRow])
+  attachmentSwitch = NSButton(checkboxWithTitle: "Photos and PDFs for AI", target: self, action: #selector(toggleAttachments))
+  attachmentSwitch.setAccessibilityLabel("Allow AI to read photos and PDFs")
+  let statusRight = NSStackView(views: [batteryRow, clientRow, attachmentSwitch])
   statusRight.orientation = .vertical
   statusRight.alignment = .trailing
   statusRight.spacing = 4
@@ -291,10 +294,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
 
  // MARK: Menu bar (the bridge keeps running while the window is closed)
 
+ @objc func toggleAttachments() {
+  guard var limits = ipcLimits, let server = ipcServer else { return }
+  limits.attachmentBytes = attachmentSwitch.state == .on ? 40 * 1_048_576 : 0
+  ipcLimits = limits
+  server.setAttachmentAccess(limits.attachmentBytes)
+ }
+
  static func friendly(_ raw: String) -> String {
   let lower = raw.lowercased()
   if lower.contains("claude") { return "Claude" }
   if lower.contains("codex") { return "Codex" }
+  if lower.contains("tunnel") || lower.contains("chatgpt") { return "ChatGPT" }
   if lower == "node" { return "AI tool (node)" }
   return raw
  }
@@ -359,7 +370,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
   bridgeNote.stringValue = folderReady ? "" : "Step 1 first: allow the Messages folder."
   bridgeNote.isHidden = folderReady
   statusBox.isHidden = !on
-  clientRow.stringValue = clientName.map { "Connected: \(Self.friendly($0))" } ?? "Waiting for Claude or Codex"
+  attachmentSwitch.state = (ipcLimits?.attachmentBytes ?? 0) > 0 ? .on : .off
+  clientRow.stringValue = clientName.map { "Connected: \(Self.friendly($0))" } ?? "Waiting for an AI tool"
   clientRow.textColor = clientName == nil ? Theme.textDim : Theme.teal
   tick()
   updateStatusItem()

@@ -100,7 +100,7 @@ final class SessionAuthority {
  }
  private struct ExplicitRun {
   let generation: UUID
-  let limits: Limits
+  var limits: Limits
   let expires: TimeInterval
   var bucketStart: TimeInterval
   var requestCount: Int
@@ -255,17 +255,30 @@ final class SessionAuthority {
  // Reserve attachment bytes before a file is read. Fails when the owner did not enable
  // attachments for this run or the run's byte allowance is used up.
  func reserveAttachmentBytes(_ ticket: Ticket, count: Int) -> Bool {
-  guard count > 0, ticket.limits.attachmentBytes > 0 else { return false }
+  guard count > 0 else { return false }
   lock.lock(); defer { lock.unlock() }
   let now = clock()
   guard let session = sessions[ticket.connection], session.generation == ticket.generation,
         session.runGeneration == ticket.runGeneration,
         var activeRun = run, activeRun.generation == ticket.runGeneration,
         now < session.expires, now < activeRun.expires else { return false }
-  guard count <= activeRun.limits.attachmentBytes - activeRun.reservedAttachmentBytes else { return false }
+  // The owner can switch attachments on or off while the bridge runs; the live setting decides.
+  guard activeRun.limits.attachmentBytes > 0,
+        count <= activeRun.limits.attachmentBytes - activeRun.reservedAttachmentBytes else { return false }
   activeRun.reservedAttachmentBytes += count
   run = activeRun
   return true
+ }
+
+ var attachmentsEnabled: Bool {
+  lock.lock(); defer { lock.unlock() }
+  return (run?.limits.attachmentBytes ?? 0) > 0
+ }
+
+ // Owner switch for attachments during a run. Bytes already read stay counted.
+ func setAttachmentBytes(_ bytes: Int) {
+  lock.lock(); defer { lock.unlock() }
+  run?.limits.attachmentBytes = max(0, bytes)
  }
 
  func isCurrent(_ ticket: Ticket) -> Bool {
