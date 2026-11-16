@@ -39,7 +39,7 @@ final class LocalBrowserWindow:NSObject,NSWindowDelegate {
   textView=NSTextView(frame:scroll.bounds);textView.isEditable=false;scroll.documentView=textView;window.contentView?.addSubview(scroll)
   do {chats=try LocalMessageReader.conversations(folder:folder,filename:"chat.db");popup.removeAllItems();popup.addItems(withTitles:chats.map{chat in
    let date=chat.lastDate.flatMap{LocalMessageReader.date($0)}.map{formatter.string(from:$0)} ?? "Date unavailable"
-   return "\(chat.identifier) · \(date)"
+   return "\(chat.title) · \(date)"
   });if !chats.isEmpty {refresh()}}
   catch {note.stringValue="Unable to read conversations safely. Check read-only folder access and WAL/SHM availability."}
   window.makeKeyAndOrderFront(nil)

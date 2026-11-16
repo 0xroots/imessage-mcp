@@ -13,7 +13,7 @@ final class AllowlistChooser:NSObject,NSTableViewDataSource,NSTableViewDelegate 
  }
  func numberOfRows(in tableView:NSTableView)->Int {chats.count}
  func tableView(_ tableView:NSTableView,viewFor tableColumn:NSTableColumn?,row:Int)->NSView? {
-  let label=NSTextField(labelWithString:chats[row].identifier);label.lineBreakMode = .byTruncatingMiddle;return label
+  let label=NSTextField(labelWithString:chats[row].title);label.lineBreakMode = .byTruncatingMiddle;return label
  }
  func selected()->Set<String> {Set(table.selectedRowIndexes.compactMap{$0<chats.count ? chats[$0].guid:nil})}
 }

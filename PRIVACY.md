@@ -5,6 +5,7 @@ iMessage MCP runs entirely on your Mac. It has no server, no account, no analyti
 ## What it reads
 
 - Messages you choose to expose, from the Messages folder you grant to the app. Access is read-only and limited to that folder through a sandbox grant; the app does not use Full Disk Access.
+- For each allowed chat: its group name and the phone numbers or emails of its members, shown to the connected tool so it can find the right chat. Contact names are not read.
 - Only after you approve a connection in the app window, and only for the chat or chats you select. You can deny or end a connection at any time.
 
 ## What it stores

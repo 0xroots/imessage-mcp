@@ -62,12 +62,12 @@ enum BackendRouter {
     var offset:Int64=0
     if let token {guard let value=authority.resolveCursor(ticket,token:token,binding:binding),value>=0 else{return error("invalid_cursor")};offset=value}
     let all=try LocalMessageReader.conversations(folder:folder,filename:filename,allowedGUIDs:allowedGUIDs)
-    let visible=all.filter{query.isEmpty || $0.identifier.localizedCaseInsensitiveContains(query)}
+    let visible=all.filter{query.isEmpty || $0.matches(query)}
     guard offset<=Int64(visible.count) else{return error("invalid_cursor")}
     let start=Int(offset),page=Array(visible.dropFirst(start).prefix(requestedLimit)),next=start+page.count<visible.count ? Int64(start+page.count):nil
     let nextToken=next.flatMap{authority.issueCursor(ticket,value:$0,binding:binding)}
     if next != nil && nextToken == nil {return error("cursor_limit")}
-    result=["conversations":page.map{entry in ["conversation_id":entry.guid,"title":entry.identifier,"last_activity":entry.lastDate.flatMap{LocalMessageReader.date($0)}.map{parser.string(from:$0)} as Any? ?? NSNull()] as [String:Any]},"next_cursor":nextToken as Any? ?? NSNull()]
+    result=["conversations":page.map{entry in ["conversation_id":entry.guid,"title":entry.title,"group_name":entry.name as Any? ?? NSNull(),"participants":Array(entry.participants.prefix(20)),"participant_count":entry.participants.count,"last_activity":entry.lastDate.flatMap{LocalMessageReader.date($0)}.map{parser.string(from:$0)} as Any? ?? NSNull()] as [String:Any]},"next_cursor":nextToken as Any? ?? NSNull()]
 
    case "get_messages","search_messages","get_recent_messages":
     var messageCursor:LocalSearchCursor?

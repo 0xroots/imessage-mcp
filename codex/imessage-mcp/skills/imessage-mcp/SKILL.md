@@ -15,7 +15,7 @@ Use the `imessage-mcp` MCP tools to work with the user's Messages on macOS.
 
 ## Tools
 
-- `list_conversations`: chats the owner allowed.
+- `list_conversations`: chats the owner allowed, with group name (`title`, `group_name`) and member handles (`participants`); `query` matches any of them.
 - `get_messages`: messages from one allowed chat, paged with a cursor.
 - `search_messages`: text search with direction and date filters.
 - `get_recent_messages`: messages since a date.

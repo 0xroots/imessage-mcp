@@ -5,7 +5,14 @@ import Darwin
 // Local GUI use only: results must never be logged or sent to another process.
 // Caller must hold the folder security scope through the entire operation.
 enum LocalReaderError: Error { case invalidInput, unavailable, sqlite(Int32), modified, searchBudgetExceeded, unsupportedSchema }
-struct LocalConversation { let guid: String; let identifier: String; let lastDate:Int64? }
+struct LocalConversation {
+ let guid: String; let identifier: String; let lastDate:Int64?
+ // Group name set in Messages and the handles of its members (both optional, bounded).
+ var name:String?=nil; var participants:[String]=[]
+ // Best human label: group name, else member handles, else the raw chat identifier.
+ var title:String { if let n=name,!n.isEmpty {return n}; if participants.count>1 {return participants.prefix(4).joined(separator:", ")+(participants.count>4 ? " +\(participants.count-4)":"")}; return identifier }
+ func matches(_ query:String)->Bool { identifier.localizedCaseInsensitiveContains(query) || (name?.localizedCaseInsensitiveContains(query) ?? false) || participants.contains{$0.localizedCaseInsensitiveContains(query)} }
+}
 struct LocalMessage { let rowID:Int64; let rawDate:Int64; let outgoing:Bool; let text:String?; let status:String; let attachmentCount:Int64 }
 struct LocalSearchHit { let chatGUID:String; let chatIdentifier:String; let message:LocalMessage }
 struct LocalSearchCursor: Equatable { let timestampNanos:Int64?; let rowID:Int64; let chatGUID:String }
@@ -45,7 +52,7 @@ private let localSQLiteAuthorizer: @convention(c) (UnsafeMutableRawPointer?,Int3
  if action==SQLITE_READ {
   guard p4==nil,let tablePointer=p1 else{return SQLITE_DENY}
   let table=String(cString:tablePointer).lowercased(),column=p2.map{String(cString:$0).lowercased()} ?? ""
-  let allowedTables=["message","chat","chat_message_join","attachment","message_attachment_join"]
+  let allowedTables=["message","chat","chat_message_join","attachment","message_attachment_join","handle","chat_handle_join"]
   if column.isEmpty {
    guard allowedTables.contains(table) else{return SQLITE_DENY}
    return p3==nil || (p3.map{String(cString:$0)}=="main") ? SQLITE_OK:SQLITE_DENY
@@ -53,7 +60,9 @@ private let localSQLiteAuthorizer: @convention(c) (UnsafeMutableRawPointer?,Int3
   guard let databasePointer=p3,String(cString:databasePointer)=="main" else{return SQLITE_DENY}
   let columns:[String:Set<String>]=[
    "message":["rowid","date","is_from_me","text","attributedbody"],
-   "chat":["rowid","guid","chat_identifier"],
+   "chat":["rowid","guid","chat_identifier","display_name"],
+   "handle":["rowid","id"],
+   "chat_handle_join":["chat_id","handle_id"],
    "chat_message_join":["chat_id","message_id"],
    "attachment":["rowid","transfer_name","mime_type","total_bytes"],
    "message_attachment_join":["message_id","attachment_id"]
@@ -266,15 +275,26 @@ enum LocalMessageReader {
    // Last activity: the newest message of each chat through the (chat_id, message_id) key,
    // one bounded lookup per chat. If this query is unavailable the list still works, undated.
    let lastDate="(SELECT m.date FROM chat_message_join j JOIN message m ON m.ROWID=j.message_id WHERE j.chat_id=chat.ROWID ORDER BY j.message_id DESC LIMIT 1)"
-   func list(_ dateExpression:String)throws->[LocalConversation] {
-    let s=try prepare(db,"SELECT guid,chat_identifier,\(dateExpression) FROM chat WHERE guid IS NOT NULL AND typeof(guid)='text' AND length(guid)>0 AND instr(guid,char(0))=0\(scope) ORDER BY ROWID DESC LIMIT 1000");defer{sqlite3_finalize(s)}
+   func list(_ dateExpression:String,_ nameExpression:String,_ memberExpression:String)throws->[LocalConversation] {
+    let s=try prepare(db,"SELECT guid,chat_identifier,\(dateExpression),\(nameExpression),\(memberExpression) FROM chat WHERE guid IS NOT NULL AND typeof(guid)='text' AND length(guid)>0 AND instr(guid,char(0))=0\(scope) ORDER BY ROWID DESC LIMIT 1000");defer{sqlite3_finalize(s)}
     for bind in bindings {try bind(s)}
     var rows:[LocalConversation]=[]
-    while true {let rc=sqlite3_step(s);if rc==SQLITE_DONE {break};guard rc==SQLITE_ROW else {throw sqliteFailure(rc)};guard let guid=string(s,0),validGUID(guid) else {continue};let date=sqlite3_column_type(s,2)==SQLITE_INTEGER ? sqlite3_column_int64(s,2):nil;rows.append(LocalConversation(guid:guid,identifier:string(s,1) ?? "[unknown]",lastDate:date))}
+    while true {
+     let rc=sqlite3_step(s);if rc==SQLITE_DONE {break};guard rc==SQLITE_ROW else {throw sqliteFailure(rc)}
+     guard let guid=string(s,0),validGUID(guid) else {continue}
+     let date=sqlite3_column_type(s,2)==SQLITE_INTEGER ? sqlite3_column_int64(s,2):nil
+     var row=LocalConversation(guid:guid,identifier:string(s,1) ?? "[unknown]",lastDate:date)
+     if let name=string(s,3)?.trimmingCharacters(in:.whitespacesAndNewlines),!name.isEmpty {row.name=String(name.prefix(200))}
+     if let members=string(s,4) {row.participants=members.split(separator:"\u{1F}").prefix(50).map{String($0.prefix(64))}.filter{!$0.isEmpty}}
+     rows.append(row)
+    }
     return rows
    }
+   // Group name and member handles, each bounded. Older or odd schemas fall back step by step.
+   let nameSQL="CASE WHEN typeof(display_name)='text' AND length(CAST(display_name AS BLOB))<=1024 THEN display_name END"
+   let memberSQL="(SELECT group_concat(h.id,char(31)) FROM chat_handle_join ch JOIN handle h ON h.ROWID=ch.handle_id WHERE ch.chat_id=chat.ROWID AND typeof(h.id)='text' AND length(h.id)<=64)"
    let rows:[LocalConversation]
-   if let dated=try? list(lastDate) {
+   if let dated=(try? list(lastDate,nameSQL,memberSQL)) ?? (try? list(lastDate,"NULL","NULL")) {
     // Most recent conversations first; undated ones last, original order kept for ties.
     rows=dated.enumerated().sorted{a,b in
      let x=a.element.lastDate.flatMap{LocalMessageReader.date($0)},y=b.element.lastDate.flatMap{LocalMessageReader.date($0)}
@@ -285,7 +305,7 @@ enum LocalMessageReader {
      default: return a.offset<b.offset
      }
     }.map{$0.element}
-   } else {rows=try list("NULL")}
+   } else {rows=try list("NULL","NULL","NULL")}
    return rows
   }
  }

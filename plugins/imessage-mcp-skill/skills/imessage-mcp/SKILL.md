@@ -26,7 +26,7 @@ If the `imessage-mcp` tools are not available, tell the user these steps. Do not
 
 ## Tools
 
-- `list_conversations`: chats the owner allowed.
+- `list_conversations`: chats the owner allowed, with group name (`title`, `group_name`) and member handles (`participants`); `query` matches any of them.
 - `get_messages`: messages from one allowed chat, paged with a cursor.
 - `search_messages`: text search with direction and date filters.
 - `get_recent_messages`: messages since a date.
