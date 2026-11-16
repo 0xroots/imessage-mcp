@@ -15,6 +15,7 @@ final class LocalIPCServer {
  private let handlers = DispatchQueue(label: "messagesmcp.connections", qos: .userInitiated, attributes: .concurrent)
  // Approval and send-confirmation dialogs never overlap, whichever connection asks.
  private let approvalGate = NSLock()
+ static let idleReadSeconds = 3600
  private var wakeRead: Int32 = -1
  private var wakeWrite: Int32 = -1
  private var running = false
@@ -294,6 +295,12 @@ final class LocalIPCServer {
   guard let selected, stillConnected(),
         authority.grant(connection: connection, mode: selected,
                         seconds: Double(limits.durationSeconds), ownerConfirmed: true, warningConfirmed: true) else { return }
+
+  // The approved connection stays open between tool calls. The 30 s read timeout above only
+  // guards the approval handshake; keeping it would drop idle clients and force a new approval
+  // dialog on their next call. The run expiry and the stop button still end the connection.
+  var idle = timeval(tv_sec: Self.idleReadSeconds, tv_usec: 0)
+  _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &idle, socklen_t(MemoryLayout<timeval>.size))
 
   // Client label is display-only: printable ASCII, short. It never affects authorization.
   let rawClient = ((try? JSONSerialization.jsonObject(with: firstLine)) as? [String: Any])?["client"] as? String ?? ""
