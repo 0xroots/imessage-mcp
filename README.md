@@ -66,7 +66,8 @@ The plugin adds the MCP server and a skill that teaches the assistant the safe w
 | `get_messages` | Read messages from an allowed chat, with paging |
 | `search_messages` | Search text, with direction and date filters |
 | `get_recent_messages` | Messages since a date |
-| `get_attachment_metadata` | Attachment names and types (never contents) |
+| `get_attachment_metadata` | Attachment names, types and sizes, with an index for each |
+| `get_attachment` | One photo or PDF as images and text. Off unless you tick *Allow reading photos and PDFs* when you start the bridge |
 | `send_message` | Send one message after your on-screen confirmation |
 
 Limits apply across every connection for the whole run. Some message bodies use formats that cannot be decoded yet; they are returned as unsupported and are never guessed.
@@ -94,7 +95,7 @@ Everything runs on your Mac with no network code and no account. The message bro
 
 **Which AI tools work?** Any client that supports stdio MCP servers, including Claude Code and Codex.
 
-**What does it not do?** It does not read attachment contents, cannot decode every archived message body yet, and cannot confirm delivery of sent messages.
+**What does it not do?** It reads attachment contents only when you allow it for a bridge run (photos and PDFs up to 15 MB each, 40 MB per run), never video or audio, cannot decode every archived message body yet, and cannot confirm delivery of sent messages.
 
 ## Development
 

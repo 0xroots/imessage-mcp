@@ -629,6 +629,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
 
  func bridgeLimitsDescription() -> String {
   guard let limits = ipcLimits else { return "Shared bridge quotas apply." }
+  let attachments = limits.attachmentBytes > 0 ? " Photos and PDFs in allowed chats can be read (up to \(limits.attachmentBytes / 1_048_576) MB per run)." : " Attachments cannot be read."
+  return describeLimits(limits) + attachments
+ }
+
+ func describeLimits(_ limits: SessionAuthority.Limits) -> String {
   if limits.isUnlimited { return "No run caps: quotas are lifted, only the 100 results per call and 120 KiB reply ceilings apply." }
   return "Run caps: \(limits.maxMessagesPerRequest) message slots per request, \(limits.maxMessagesPerSession) per run, \(limits.requestsPerMinute) requests/minute, \(limits.durationSeconds / 60) minutes, and \(limits.maxResponseBytes / 1_024) KiB backend JSON."
  }

@@ -16,6 +16,7 @@ final class LocalIPCServer {
  // Approval and send-confirmation dialogs never overlap, whichever connection asks.
  private let approvalGate = NSLock()
  static let idleReadSeconds = 3600
+ static let maxAttachmentReplyBytes = 3_500_000
  private var wakeRead: Int32 = -1
  private var wakeWrite: Int32 = -1
  private var running = false
@@ -323,10 +324,12 @@ final class LocalIPCServer {
    let status = result["error"] == nil ? "ok" : "denied_or_error"
    NSLog("MessagesMCP operation=%@ status=%@", operation, status)
    guard var data = try? JSONSerialization.data(withJSONObject: result) else { break }
-   if data.count > limits.maxResponseBytes {
+   // Attachment replies carry base64 images, so they have their own, larger ceiling.
+   let ceiling = operation == "get_attachment" ? Self.maxAttachmentReplyBytes : limits.maxResponseBytes
+   if data.count > ceiling {
     data = (try? JSONSerialization.data(withJSONObject: BackendRouter.error("response_too_large"))) ?? Data()
    }
-   guard data.count <= limits.maxResponseBytes, isRunning() else { break }
+   guard data.count <= ceiling, isRunning() else { break }
    data.append(10)
    let writer = RevocableSocketWriter(lock: state, wakeDescriptor: wakeReadFD) {
     self.running && self.activeFDs.contains(fd) && self.authority.currentMode(connection: connection) != nil

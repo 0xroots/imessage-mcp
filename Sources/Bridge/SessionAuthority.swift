@@ -18,7 +18,11 @@ final class SessionAuthority {
   // Owner chose "no limits": quotas are lifted except the ceilings that are
   // technical (100 results per call, 120 KiB reply). Connections still need approval.
   static let unlimited = Limits(unchecked: 100, 1_000_000_000, 1_000_000, 10 * 365 * 86_400, 120 * 1_024)
-  var isUnlimited: Bool { self == Limits.unlimited }
+  // The attachment allowance is a separate owner choice and does not change what "unlimited" means.
+  var isUnlimited: Bool { var plain = self; plain.attachmentBytes = 0; return plain == Limits.unlimited }
+  // Total attachment bytes a bridge run may read (photos, PDFs). 0 means attachments are off.
+  var attachmentBytes: Int = 0
+  static let maxAttachmentFileBytes = 15 * 1_024 * 1_024
 
   static let hardMaxMessagesPerRequest = 100
   static let hardMaxMessagesPerSession = 500
@@ -101,6 +105,7 @@ final class SessionAuthority {
   var bucketStart: TimeInterval
   var requestCount: Int
   var reservedMessages: Int
+  var reservedAttachmentBytes: Int = 0
  }
 
  private let lock = NSLock()
@@ -243,6 +248,22 @@ final class SessionAuthority {
    return false
   }
   activeRun.reservedMessages += count
+  run = activeRun
+  return true
+ }
+
+ // Reserve attachment bytes before a file is read. Fails when the owner did not enable
+ // attachments for this run or the run's byte allowance is used up.
+ func reserveAttachmentBytes(_ ticket: Ticket, count: Int) -> Bool {
+  guard count > 0, ticket.limits.attachmentBytes > 0 else { return false }
+  lock.lock(); defer { lock.unlock() }
+  let now = clock()
+  guard let session = sessions[ticket.connection], session.generation == ticket.generation,
+        session.runGeneration == ticket.runGeneration,
+        var activeRun = run, activeRun.generation == ticket.runGeneration,
+        now < session.expires, now < activeRun.expires else { return false }
+  guard count <= activeRun.limits.attachmentBytes - activeRun.reservedAttachmentBytes else { return false }
+  activeRun.reservedAttachmentBytes += count
   run = activeRun
   return true
  }

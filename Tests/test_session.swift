@@ -119,6 +119,18 @@ import Foundation
   let ft = free.ticket(connection: x, chat: "a")!
   precondition(free.reserveMessages(ft, count: 100) && free.reserveMessages(ft, count: 100))
   free.endExplicitSession()
+  var withFiles = SessionAuthority.Limits.defaults; withFiles.attachmentBytes = 1_000
+  let files = SessionAuthority()
+  precondition(files.beginExplicitSession(limits: withFiles))
+  let fc = UUID(); precondition(files.grant(connection: fc, mode: .full, seconds: 60, ownerConfirmed: true, warningConfirmed: true))
+  let fticket = files.ticket(connection: fc, chat: nil)!
+  precondition(files.reserveAttachmentBytes(fticket, count: 600) && !files.reserveAttachmentBytes(fticket, count: 600) && files.reserveAttachmentBytes(fticket, count: 400))
+  files.endExplicitSession()
+  let off = SessionAuthority(); precondition(off.beginExplicitSession(limits: .defaults))
+  let oc = UUID(); precondition(off.grant(connection: oc, mode: .full, seconds: 60, ownerConfirmed: true, warningConfirmed: true))
+  precondition(!off.reserveAttachmentBytes(off.ticket(connection: oc, chat: nil)!, count: 1))
+  var plainUnlimited = SessionAuthority.Limits.unlimited; plainUnlimited.attachmentBytes = 5
+  precondition(plainUnlimited.isUnlimited)
   print("PASS owner start, hard limits, reconnect quotas, rate window, expiry, exact allowlist and cursor rotation")
  }
 }

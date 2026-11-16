@@ -30,10 +30,10 @@ enum BridgeLimitsChooser {
    ("Duration in minutes (1–60)", String(defaults.durationSeconds / 60)),
    ("Backend JSON response limit in KiB (1–120)", String(defaults.maxResponseBytes / 1_024))
   ]
-  let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 176))
+  let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 212))
   var fields: [NSTextField] = []
   for (index, row) in rows.enumerated() {
-   let y = 144 - index * 32
+   let y = 180 - index * 32
    let label = NSTextField(labelWithString: row.0)
    label.frame = NSRect(x: 0, y: y, width: 348, height: 24)
    accessory.addSubview(label)
@@ -43,11 +43,19 @@ enum BridgeLimitsChooser {
    accessory.addSubview(field)
    fields.append(field)
   }
+  // Attachments are a separate, explicit choice: they can contain far more than text.
+  let attachmentsBox = NSButton(checkboxWithTitle: "Allow reading photos and PDFs from allowed chats (up to 40 MB per run)", target: nil, action: nil)
+  attachmentsBox.frame = NSRect(x: 0, y: 6, width: 460, height: 24)
+  accessory.addSubview(attachmentsBox)
   alert.accessoryView = accessory
+  let attachmentBytes = 40 * 1_024 * 1_024
 
   switch alert.runModal() {
   case .alertFirstButtonReturn: break
-  case .alertThirdButtonReturn: return .unlimited
+  case .alertThirdButtonReturn:
+   var unlimited = SessionAuthority.Limits.unlimited
+   if attachmentsBox.state == .on { unlimited.attachmentBytes = 4 * attachmentBytes }
+   return unlimited
   default: return nil
   }
   let values = fields.compactMap { Int($0.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) }
@@ -57,7 +65,7 @@ enum BridgeLimitsChooser {
   }
   // Out-of-range numbers are brought to the nearest allowed value instead of being refused.
   func clamp(_ value: Int, _ range: ClosedRange<Int>) -> Int { min(max(value, range.lowerBound), range.upperBound) }
-  guard let limits = SessionAuthority.Limits(maxMessagesPerRequest: clamp(values[0], 1...SessionAuthority.Limits.hardMaxMessagesPerRequest),
+  guard var limits = SessionAuthority.Limits(maxMessagesPerRequest: clamp(values[0], 1...SessionAuthority.Limits.hardMaxMessagesPerRequest),
                                              maxMessagesPerSession: clamp(values[1], 1...SessionAuthority.Limits.hardMaxMessagesPerSession),
                                              requestsPerMinute: clamp(values[2], 1...SessionAuthority.Limits.hardMaxRequestsPerMinute),
                                              durationSeconds: clamp(values[3], 1...60) * 60,
@@ -65,6 +73,7 @@ enum BridgeLimitsChooser {
    showInvalidLimits()
    return nil
   }
+  if attachmentsBox.state == .on { limits.attachmentBytes = attachmentBytes }
   return limits
  }
 

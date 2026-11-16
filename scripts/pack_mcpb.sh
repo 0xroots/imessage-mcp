@@ -52,7 +52,8 @@ cat > "$stage/pkg/manifest.json" <<JSON
     { "name": "get_messages", "description": "Read messages from an allowed chat" },
     { "name": "search_messages", "description": "Search message text with filters" },
     { "name": "get_recent_messages", "description": "Messages since a date" },
-    { "name": "get_attachment_metadata", "description": "Attachment names and types, never contents" },
+    { "name": "get_attachment_metadata", "description": "Attachment names, types and sizes" },
+    { "name": "get_attachment", "description": "One photo or PDF as images and text, only when the owner enables attachments for the run" },
     { "name": "send_message", "description": "Send one message after on-screen owner confirmation" }
   ],
   "privacy_policies": ["https://github.com/0xroots/imessage-mcp/blob/main/PRIVACY.md"],

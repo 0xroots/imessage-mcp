@@ -3,7 +3,7 @@ import CoreFoundation
 
 // The app owns the folder scope and calls this router only on a verified connection.
 enum BackendRouter {
- static let names:Set<String>=["list_conversations","get_messages","search_messages","get_recent_messages","get_attachment_metadata"]
+ static let names:Set<String>=["list_conversations","get_messages","search_messages","get_recent_messages","get_attachment_metadata","get_attachment"]
  static func error(_ code:String)->[String:Any] { ["error":["code":code]] }
 
  static func response(authority:SessionAuthority,connection:UUID,folder:URL,filename:String,request:[String:Any])->[String:Any] {
@@ -13,7 +13,8 @@ enum BackendRouter {
    "get_messages":["conversation_id","direction","date_from","date_to","limit","cursor"],
    "search_messages":["conversation_id","query","direction","date_from","date_to","limit","cursor"],
    "get_recent_messages":["conversation_id","direction","since","date_to","limit","cursor"],
-   "get_attachment_metadata":["conversation_id","message_id","limit"]
+   "get_attachment_metadata":["conversation_id","message_id","limit"],
+   "get_attachment":["conversation_id","message_id","attachment_index"]
   ]
   guard Set(args.keys).isSubset(of:allowedArguments[op]!) else{return error("invalid_argument")}
   if let raw=args["conversation_id"],!(raw is String) {return error("invalid_argument")}
@@ -21,7 +22,7 @@ enum BackendRouter {
   if let raw=args["direction"],!(raw is String) {return error("invalid_direction")}
   let chat=args["conversation_id"] as? String
   if let chat,!LocalMessageReader.validGUID(chat) {return error("invalid_argument")}
-  if ["get_messages","get_attachment_metadata"].contains(op) && chat == nil {return error("conversation_required")}
+  if ["get_messages","get_attachment_metadata","get_attachment"].contains(op) && chat == nil {return error("conversation_required")}
   let query=args["query"] as? String ?? ""
   guard query.utf8.count<=512 else{return error("invalid_argument")}
   if op=="search_messages" && query.isEmpty {return error("query_required")}
@@ -92,7 +93,35 @@ enum BackendRouter {
     guard authority.reserveMessages(ticket,count:1) else{return error("message_budget_exhausted")}
     let attachmentLimit=min(requestedLimit,ticket.limits.maxMessagesPerRequest)
     let items=try LocalMessageReader.attachments(folder:folder,filename:filename,guid:chat,messageID:id.int64Value,limit:attachmentLimit)
-    result=["attachments":items.map{["filename":$0.name as Any? ?? NSNull(),"mime_type":$0.mimeType as Any? ?? NSNull(),"size":$0.size as Any? ?? NSNull()] as [String:Any]}]
+    result=["attachments":items.enumerated().map{["index":$0.offset,"filename":$0.element.name as Any? ?? NSNull(),"mime_type":$0.element.mimeType as Any? ?? NSNull(),"size":$0.element.size as Any? ?? NSNull()] as [String:Any]}]
+
+   case "get_attachment":
+    // Reads the file only when the owner enabled attachments for this bridge run.
+    guard ticket.limits.attachmentBytes>0 else{return error("attachments_disabled")}
+    guard let id=args["message_id"] as? NSNumber,CFGetTypeID(id) != CFBooleanGetTypeID(),id.int64Value>0,id.doubleValue==Double(id.int64Value),let chat else{return error("message_required")}
+    var attachmentIndex=0
+    if let raw=args["attachment_index"] {
+     guard let n=raw as? NSNumber,CFGetTypeID(n) != CFBooleanGetTypeID(),n.intValue>=0,n.intValue<50,n.doubleValue==Double(n.intValue) else{return error("invalid_argument")}
+     attachmentIndex=n.intValue
+    }
+    guard authority.reserveMessages(ticket,count:1) else{return error("message_budget_exhausted")}
+    guard let source=try LocalMessageReader.attachmentSource(folder:folder,filename:filename,guid:chat,messageID:id.int64Value,index:attachmentIndex) else{return error("attachment_not_found")}
+    let declared=Int(clamping:source.size ?? 0)
+    guard declared<=SessionAuthority.Limits.maxAttachmentFileBytes else{return error("attachment_too_large")}
+    guard authority.reserveAttachmentBytes(ticket,count:declared>0 ? declared:SessionAuthority.Limits.maxAttachmentFileBytes) else{return error("attachment_budget_exhausted")}
+    do {
+     let loaded=try AttachmentLoader.load(source:source,folder:folder,maxBytes:SessionAuthority.Limits.maxAttachmentFileBytes)
+     var info:[String:Any]=["filename":source.name as Any? ?? NSNull(),"mime_type":loaded.mimeType,"size":loaded.byteCount]
+     if let pages=loaded.pageCount {info["pages"]=pages;info["pages_returned_as_images"]=loaded.images.count}
+     result=["attachment":info,"text":loaded.text as Any? ?? NSNull(),"images":loaded.images.map{$0.base64EncodedString()}]
+    } catch let failure as AttachmentLoadError {
+     switch failure {
+     case .notAvailable:return error("attachment_file_unavailable")
+     case .tooLarge:return error("attachment_too_large")
+     case .unsupportedType:return error("attachment_type_unsupported")
+     case .unreadable:return error("attachment_unreadable")
+     }
+    }
    default:return error("invalid_request")
    }
    guard authority.isCurrent(ticket) else{return error("access_revoked")}

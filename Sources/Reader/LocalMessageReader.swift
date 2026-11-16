@@ -18,6 +18,8 @@ struct LocalSearchHit { let chatGUID:String; let chatIdentifier:String; let mess
 struct LocalSearchCursor: Equatable { let timestampNanos:Int64?; let rowID:Int64; let chatGUID:String }
 struct LocalSearchPage { let hits:[LocalSearchHit]; let nextCursor:LocalSearchCursor?; let unsupportedCount:Int; let examinedCount:Int }
 struct LocalAttachment {let name:String?;let mimeType:String?;let size:Int64?}
+// Where one attachment lives on disk (relative to the Messages folder) and what the database says about it.
+struct LocalAttachmentSource {let name:String?;let mimeType:String?;let size:Int64?;let storedPath:String?}
 
 // SQLite runs the text predicate itself so the database applies it alongside
 // the chat, direction, date, and cursor filters. These functions only inspect
@@ -64,7 +66,7 @@ private let localSQLiteAuthorizer: @convention(c) (UnsafeMutableRawPointer?,Int3
    "handle":["rowid","id"],
    "chat_handle_join":["chat_id","handle_id"],
    "chat_message_join":["chat_id","message_id"],
-   "attachment":["rowid","transfer_name","mime_type","total_bytes"],
+   "attachment":["rowid","transfer_name","mime_type","total_bytes","filename"],
    "message_attachment_join":["message_id","attachment_id"]
   ]
   return columns[table]?.contains(column)==true ? SQLITE_OK:SQLITE_DENY
@@ -132,6 +134,24 @@ enum LocalMessageReader {
     let size=sqlite3_column_type(stmt,2)==SQLITE_INTEGER ? sqlite3_column_int64(stmt,2):nil
     rows.append(LocalAttachment(name:string(stmt,0),mimeType:string(stmt,1),size:size))
    };return rows
+  }
+ }
+ // The i-th attachment (0-based, same order as `attachments`) of one message in one chat,
+ // with its stored path. The path is only used by AttachmentLoader and is never returned.
+ static func attachmentSource(folder:URL,filename:String,guid:String,messageID:Int64,index:Int)throws->LocalAttachmentSource? {
+  guard validGUID(guid),messageID>0,index>=0,index<100 else {throw LocalReaderError.invalidInput}
+  return try session(folder:folder,filename:filename){db in
+   let sql="""
+   SELECT a.transfer_name,a.mime_type,a.total_bytes,a.filename FROM chat c
+   JOIN chat_message_join cm ON cm.chat_id=c.ROWID JOIN message m ON m.ROWID=cm.message_id
+   JOIN message_attachment_join ma ON ma.message_id=m.ROWID JOIN attachment a ON a.ROWID=ma.attachment_id
+   WHERE c.guid COLLATE BINARY=?1 COLLATE BINARY AND m.ROWID=?2 ORDER BY a.ROWID LIMIT 1 OFFSET ?3
+   """
+   let stmt=try prepare(db,sql);defer{sqlite3_finalize(stmt)};try bind(stmt,1,guid)
+   guard sqlite3_bind_int64(stmt,2,messageID)==SQLITE_OK,sqlite3_bind_int(stmt,3,Int32(index))==SQLITE_OK else {throw LocalReaderError.unavailable}
+   let rc=sqlite3_step(stmt);if rc==SQLITE_DONE {return nil};guard rc==SQLITE_ROW else {throw sqliteFailure(rc)}
+   let size=sqlite3_column_type(stmt,2)==SQLITE_INTEGER ? sqlite3_column_int64(stmt,2):nil
+   return LocalAttachmentSource(name:string(stmt,0),mimeType:string(stmt,1),size:size,storedPath:string(stmt,3))
   }
  }
  // Distinct plausible seconds/nanoseconds ranges only. Ambiguous or implausible
