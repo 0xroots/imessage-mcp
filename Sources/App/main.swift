@@ -303,6 +303,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
 
  static func friendly(_ raw: String) -> String {
   let lower = raw.lowercased()
+  if raw.contains(", ") || raw.contains("\u{00D7}") {
+   // Several clients: "claude×4, codex×2" becomes "Claude ×4, Codex ×2".
+   return raw.components(separatedBy: ", ").map { part -> String in
+    let pieces = part.components(separatedBy: "\u{00D7}")
+    return pieces.count == 2 ? "\(friendly(pieces[0])) \u{00D7}\(pieces[1])" : friendly(part)
+   }.joined(separator: ", ")
+  }
   if lower.contains("claude") { return "Claude" }
   if lower.contains("codex") { return "Codex" }
   if lower.contains("tunnel") || lower.contains("chatgpt") { return "ChatGPT" }
@@ -578,7 +585,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
     case .acceptedByMessages: return "submitted"
     case .indeterminate: return "unknown" + why
     }
-   }) { [weak self] alive in self?.approveBridgeConnection(stillConnected: alive) }
+   }) { [weak self] client, alive in self?.approveBridgeConnection(client: client, stillConnected: alive) }
   guard server.start() else {
    url.stopAccessingSecurityScopedResource()
    message("The bridge did not start", "Another copy of the app may be running the bridge, or a previous connection is still closing. Quit the other copy or wait a moment, then try again.")
@@ -693,9 +700,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
   return runConnectionAlert(alert, stillConnected: stillConnected) == .alertSecondButtonReturn && stillConnected()
  }
 
- func approveBridgeConnection(stillConnected: @escaping () -> Bool) -> SessionAuthority.Mode? {
+ func approveBridgeConnection(client: String, stillConnected: @escaping () -> Bool) -> SessionAuthority.Mode? {
   let alert = NSAlert()
-  alert.messageText = "Allow AI access for this connection?"
+  alert.messageText = "Allow \(Self.friendly(client)) to access your messages?"
   alert.informativeText = "The adapter can be launched by other local processes. Approve only if you initiated this request. Retrieved message content may be sent to cloud-hosted AI. This connection shares the bridge's run-wide quotas and expiry.\n\n\(bridgeLimitsDescription())"
   alert.addButton(withTitle: "Deny")
   alert.addButton(withTitle: "Selected chat")
@@ -715,14 +722,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSOpenSavePanelDelegat
    guard !selected.isEmpty, selected.count <= 100 else { return nil }
    return .assisted(selected)
   }
-  if answer == .alertThirdButtonReturn {
-   let warning = NSAlert()
-   warning.messageText = "Allow all conversations?"
-   warning.informativeText = "AI clients may send retrieved messages to cloud-hosted models. Any conversation can be accessed until this bridge run expires or you stop the bridge.\n\n\(bridgeLimitsDescription())"
-   warning.addButton(withTitle: "Cancel")
-   warning.addButton(withTitle: "Allow all for this bridge run")
-   return runConnectionAlert(warning, stillConnected: stillConnected) == .alertSecondButtonReturn && stillConnected() ? .full : nil
-  }
+  // The first dialog already carries the cloud warning and the run caps, so All chats needs no second one.
+  if answer == .alertThirdButtonReturn { return stillConnected() ? .full : nil }
   return nil
  }
 

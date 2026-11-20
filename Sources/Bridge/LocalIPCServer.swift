@@ -11,11 +11,11 @@ final class LocalIPCServer {
  private var activeFDs = Set<Int32>()
  private var connectionCount = 0
  private var clientLabels: [UUID: String] = [:]
- private static let maxConnections = 8
+ private static let maxConnections = 32
  private let handlers = DispatchQueue(label: "messagesmcp.connections", qos: .userInitiated, attributes: .concurrent)
  // Approval and send-confirmation dialogs never overlap, whichever connection asks.
  private let approvalGate = NSLock()
- static let idleReadSeconds = 3600
+ static let idleReadSeconds = 86_400
  static let maxAttachmentReplyBytes = 3_500_000
  private var wakeRead: Int32 = -1
  private var wakeWrite: Int32 = -1
@@ -30,7 +30,10 @@ final class LocalIPCServer {
  private let limits: SessionAuthority.Limits
  private let onRunExpired: () -> Void
  private let onClient: (String?) -> Void
- private let choose: (@escaping () -> Bool) -> SessionAuthority.Mode?
+ private let choose: (String, @escaping () -> Bool) -> SessionAuthority.Mode?
+ // Approvals remembered for this bridge run, keyed by the client's code-signing identity.
+ // A new connection from the same signed client gets the same access without another dialog.
+ private var approvedClients = [String: SessionAuthority.Mode]()
  private let confirmSend: (String, String, @escaping () -> Bool) -> Bool
  private let sendText: (String, String, @escaping () -> Bool) -> String
 
@@ -39,7 +42,7 @@ final class LocalIPCServer {
       onClient: @escaping (String?) -> Void = { _ in },
       confirmSend: @escaping (String, String, @escaping () -> Bool) -> Bool = {_,_,_ in false},
       sendText: @escaping (String, String, @escaping () -> Bool) -> String = {_,_,_ in "not_attempted"},
-      choose: @escaping (@escaping () -> Bool) -> SessionAuthority.Mode?) {
+      choose: @escaping (String, @escaping () -> Bool) -> SessionAuthority.Mode?) {
   self.folder = folder
   self.filename = filename
   self.limits = limits
@@ -132,7 +135,7 @@ final class LocalIPCServer {
   }
   guard bound == 0 else { return false }
   didBind = true
-  guard chmod(path, 0o600) == 0, listen(listenerFD, 8) == 0 else { return false }
+  guard chmod(path, 0o600) == 0, listen(listenerFD, 32) == 0 else { return false }
   let listenerFlags = fcntl(listenerFD, F_GETFL, 0)
   guard listenerFlags >= 0, fcntl(listenerFD, F_SETFL, listenerFlags | O_NONBLOCK) == 0 else { return false }
   guard authority.beginExplicitSession(limits: limits) else { return false }
@@ -290,10 +293,23 @@ final class LocalIPCServer {
    }
    return true
   }
+  // Client label is display-only: printable ASCII, short. It never affects authorization.
+  let firstObject = (try? JSONSerialization.jsonObject(with: firstLine)) as? [String: Any]
+  let rawClient = firstObject?["client"] as? String ?? ""
+  let clientLabel = String(rawClient.unicodeScalars.filter { $0.value >= 32 && $0.value < 127 }.prefix(40))
+  // The identity is computed by our own signed adapter from its parent's code signature.
+  let rawIdentity = firstObject?["client_id"] as? String ?? ""
+  let identity = rawIdentity.count <= 200 && rawIdentity.contains(":") && rawIdentity.unicodeScalars.allSatisfy { $0.value >= 32 && $0.value < 127 } ? rawIdentity : ""
   var selected: SessionAuthority.Mode?
   approvalGate.lock()
-  DispatchQueue.main.sync {
-   if stillConnected() { selected = self.choose(stillConnected) }
+  state.lock(); let remembered = identity.isEmpty ? nil : approvedClients[identity]; state.unlock()
+  if let remembered {
+   selected = remembered
+  } else {
+   DispatchQueue.main.sync {
+    if stillConnected() { selected = self.choose(clientLabel.isEmpty ? "AI tool" : clientLabel, stillConnected) }
+   }
+   if let selected, !identity.isEmpty { state.lock(); approvedClients[identity] = selected; state.unlock() }
   }
   approvalGate.unlock()
   guard let selected, stillConnected(),
@@ -306,9 +322,6 @@ final class LocalIPCServer {
   var idle = timeval(tv_sec: Self.idleReadSeconds, tv_usec: 0)
   _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &idle, socklen_t(MemoryLayout<timeval>.size))
 
-  // Client label is display-only: printable ASCII, short. It never affects authorization.
-  let rawClient = ((try? JSONSerialization.jsonObject(with: firstLine)) as? [String: Any])?["client"] as? String ?? ""
-  let clientLabel = String(rawClient.unicodeScalars.filter { $0.value >= 32 && $0.value < 127 }.prefix(40))
   setClient(connection, clientLabel.isEmpty ? "AI tool" : clientLabel)
   var pending: Data? = firstLine
   while isRunning() {
@@ -348,10 +361,10 @@ final class LocalIPCServer {
  private func setClient(_ connection: UUID, _ label: String?) {
   state.lock()
   clientLabels[connection] = label
-  var seen = Set<String>()
-  let names = clientLabels.values.sorted().filter { seen.insert($0).inserted }
+  var counts = [String: Int]()
+  for value in clientLabels.values { counts[value, default: 0] += 1 }
   state.unlock()
-  let text = names.isEmpty ? nil : names.joined(separator: ", ")
+  let text = counts.isEmpty ? nil : counts.keys.sorted().map { counts[$0]! > 1 ? "\($0)\u{00D7}\(counts[$0]!)" : $0 }.joined(separator: ", ")
   DispatchQueue.main.async { [weak self] in self?.onClient(text) }
  }
 

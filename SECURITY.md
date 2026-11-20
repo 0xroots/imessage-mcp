@@ -8,7 +8,7 @@ Please open a private security advisory on the repository, or contact the mainta
 
 - **Sandbox.** App Sandbox with read-only, user-selected, app-scoped access to `~/Library/Messages`. No network entitlement, no Full Disk Access.
 - **Local bridge.** A Unix socket inside the app container. The adapter and the app verify each other's code signature (bundle identifier plus Team ID).
-- **Owner approval per connection.** Each new connection needs approval for selected chats or all chats. Approvals do not persist after the bridge stops.
+- **Owner approval per client.** A new client needs approval for selected chats or all chats, shown with the client's name. The adapter identifies its parent process by code signature (team and signing identifier), and later connections from the same signed client get the same access without another dialog. Unsigned or unverifiable clients are asked every time. Approvals do not persist after the bridge stops.
 - **Limits.** Time, message slots per request and per run, requests per minute and response size are set by the owner on every start and apply across reconnects.
 - **Attachments.**
   - On by default in the start dialog with a byte allowance (40 MB per run); the owner can switch them off at start or at any time in the app window, and the switch applies to the next request. Connection approval and chat selection still apply.

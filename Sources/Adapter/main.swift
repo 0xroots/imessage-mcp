@@ -66,7 +66,24 @@ func parentName()->String {
  guard proc_name(getppid(),&buf,UInt32(buf.count))>0 else{return ""}
  return String(cString:buf)
 }
+// Stable identity of the client: team and signing identifier of the process that launched this
+// adapter, taken from its code signature (a name alone can be copied). Empty when the parent is
+// unsigned or cannot be checked; the app then asks for approval on every connection.
+func parentIdentity()->String {
+ var guest:SecCode?
+ let attributes=[kSecGuestAttributePid as String:Int(getppid())] as CFDictionary
+ guard SecCodeCopyGuestWithAttributes(nil,attributes,SecCSFlags(),&guest)==errSecSuccess,let guest,
+       SecCodeCheckValidity(guest,SecCSFlags(),nil)==errSecSuccess else{return ""}
+ var staticCode:SecStaticCode?
+ guard SecCodeCopyStaticCode(guest,SecCSFlags(),&staticCode)==errSecSuccess,let staticCode else{return ""}
+ var info:CFDictionary?
+ guard SecCodeCopySigningInformation(staticCode,SecCSFlags(rawValue:kSecCSSigningInformation),&info)==errSecSuccess,
+       let dict=info as? [String:Any],let team=dict[kSecCodeInfoTeamIdentifier as String] as? String,
+       let ident=dict[kSecCodeInfoIdentifier as String] as? String,!team.isEmpty,!ident.isEmpty else{return ""}
+ return "\(team):\(ident)"
+}
 let clientName=parentName()
+let clientIdentity=parentIdentity()
 let path=CommandLine.arguments.count==2 ? CommandLine.arguments[1]:""
 var peer:Int32?=nil
 defer{if let peer {_ = close(peer)}}
@@ -78,7 +95,7 @@ while let line=readLineFD(STDIN_FILENO,limit:maxLine) {
  guard method=="tools/call",let params=obj["params"] as? [String:Any],let name=params["name"] as? String,names.contains(name),let args=params["arguments"] as? [String:Any] else {error(id,-32602,"Invalid tool call");continue}
  if peer==nil {peer=connectSocket(path)}
  if peer==nil && name=="send_message" {error(id,-32001,"Bridge not running or unreachable; nothing was sent.");continue}
- guard let fd=peer,let encoded=try? JSONSerialization.data(withJSONObject:["operation":name,"arguments":args,"client":clientName]),encoded.count<=maxLine,writeAll(fd,encoded+Data([10])),let response=readLineFD(fd,limit:maxReply),let result=try? JSONSerialization.jsonObject(with:response) else {if let fd=peer {_ = close(fd)};peer=nil;error(id,-32000,name == "send_message" ? "Send status unknown; do not retry. Check Messages before attempting again." : "Local backend unavailable or authorization denied");continue}
+ guard let fd=peer,let encoded=try? JSONSerialization.data(withJSONObject:["operation":name,"arguments":args,"client":clientName,"client_id":clientIdentity]),encoded.count<=maxLine,writeAll(fd,encoded+Data([10])),let response=readLineFD(fd,limit:maxReply),let result=try? JSONSerialization.jsonObject(with:response) else {if let fd=peer {_ = close(fd)};peer=nil;error(id,-32000,name == "send_message" ? "Send status unknown; do not retry. Check Messages before attempting again." : "Local backend unavailable or authorization denied");continue}
  guard let rendered=try? JSONSerialization.data(withJSONObject:result),let text=String(data:rendered,encoding:.utf8) else {error(id,-32603,"Invalid backend response");continue}
  if name=="get_attachment",var body=result as? [String:Any],let images=body["images"] as? [String],!images.isEmpty {
   // Images travel as MCP image content, not as base64 inside the text.

@@ -7,7 +7,7 @@ enum BackendRouter {
  static func error(_ code:String)->[String:Any] { ["error":["code":code]] }
 
  static func response(authority:SessionAuthority,connection:UUID,folder:URL,filename:String,request:[String:Any])->[String:Any] {
-  guard Set(request.keys).isSubset(of:["operation","arguments","client"]),let op=request["operation"] as? String,names.contains(op),let args=request["arguments"] as? [String:Any],args.count<=8 else{return error("invalid_request")}
+  guard Set(request.keys).isSubset(of:["operation","arguments","client","client_id"]),let op=request["operation"] as? String,names.contains(op),let args=request["arguments"] as? [String:Any],args.count<=8 else{return error("invalid_request")}
   let allowedArguments:[String:Set<String>]=[
    "list_conversations":["query","limit","cursor"],
    "get_messages":["conversation_id","direction","date_from","date_to","limit","cursor"],
