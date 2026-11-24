@@ -373,8 +373,8 @@ final class LocalIPCServer {
  private func handleSend(_ request:[String:Any],connection:UUID,fd:Int32,stillConnected:@escaping ()->Bool)->[String:Any] {
   guard Set(request.keys).isSubset(of:["operation","arguments","client"]),let args=request["arguments"] as? [String:Any],
         Set(args.keys)==Set(["recipient","text","request_id"]),let recipient=args["recipient"] as? String,
-        let text=args["text"] as? String,let rawID=args["request_id"] as? String,let requestID=UUID(uuidString:rawID),
-        MessageDispatchPolicy.valid(recipient:recipient,text:text) else {return BackendRouter.error("invalid_send_request")}
+        let text=args["text"] as? String,let rawID=args["request_id"] as? String,let requestID=UUID(uuidString:rawID) else {return BackendRouter.error("invalid_send_request")}
+  if let reason=MessageDispatchPolicy.invalidReason(recipient:recipient,text:text) {return ["error":["code":"invalid_send_request","reason":reason]]}
   guard let ticket=authority.ticket(connection:connection,chat:nil,allowAssistedListing:true) else{return BackendRouter.error("access_denied")}
   let policy=MessageDispatchPolicy.shared
   let started=ProcessInfo.processInfo.systemUptime

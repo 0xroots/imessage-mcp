@@ -63,6 +63,13 @@ import Darwin
   require(!MessageDispatchPolicy.valid(recipient: "5555550123", text: "x"), "reject non-E.164 recipient")
   require(!MessageDispatchPolicy.valid(recipient: recipient, text: "x\u{202e}y"), "reject bidi control")
   require(!MessageDispatchPolicy.valid(recipient: recipient, text: "x\u{2060}y"), "reject default ignorable")
+  require(MessageDispatchPolicy.valid(recipient: recipient, text: "love \u{2764}\u{FE0F}"), "allow emoji variation selector")
+  require(MessageDispatchPolicy.valid(recipient: recipient, text: "family \u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}"), "allow emoji ZWJ sequence")
+  require(!MessageDispatchPolicy.valid(recipient: recipient, text: "x\u{200D}y"), "reject bare ZWJ")
+  require(!MessageDispatchPolicy.valid(recipient: recipient, text: "x\u{FE0F}"), "reject bare variation selector")
+  require(MessageDispatchPolicy.invalidReason(recipient: "Ash", text: "x") == "recipient_not_e164", "reason: recipient")
+  require(MessageDispatchPolicy.invalidReason(recipient: recipient, text: "x\u{2060}y") == "text_hidden_characters", "reason: hidden")
+  require(MessageDispatchPolicy.invalidReason(recipient: recipient, text: "") == "text_empty", "reason: empty")
   require(!MessageDispatchPolicy.valid(recipient: recipient, text: String(repeating: "x", count: 1001)), "reject oversized text")
 
   let (policy, directory) = makePolicy()

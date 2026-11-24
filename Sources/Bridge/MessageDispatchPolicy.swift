@@ -55,23 +55,39 @@ final class MessageDispatchPolicy {
   #endif
  }
 
- static func valid(recipient: String, text: String) -> Bool {
+ static func valid(recipient: String, text: String) -> Bool { invalidReason(recipient: recipient, text: text) == nil }
+
+ // Why a send request is refused, as a short code that never contains the recipient or text.
+ static func invalidReason(recipient: String, text: String) -> String? {
   let bytes = Array(recipient.utf8)
   guard (9...16).contains(bytes.count), bytes.first == 43,
         bytes.dropFirst().allSatisfy({ $0 >= 48 && $0 <= 57 }),
-        bytes[1] != 48 else { return false }
-  guard !text.isEmpty, text.utf8.count <= 4096, text.count <= 1000 else { return false }
+        bytes[1] != 48 else { return "recipient_not_e164" }
+  guard !text.isEmpty else { return "text_empty" }
+  guard text.utf8.count <= 4096, text.count <= 1000 else { return "text_too_long" }
 
   // Prevent invisible/bidirectional control characters from misleading the
-  // owner in the exact-recipient/exact-text confirmation dialog.
-  for scalar in text.unicodeScalars {
+  // owner in the exact-recipient/exact-text confirmation dialog. Emoji variation
+  // selectors and joiners are allowed only inside emoji sequences.
+  func emoji(_ s: Unicode.Scalar) -> Bool { s.properties.isEmoji && s.value > 0xFF }
+  let scalars = Array(text.unicodeScalars)
+  for (index, scalar) in scalars.enumerated() {
    let value = scalar.value
-   if scalar.properties.isDefaultIgnorableCodePoint { return false }
+   if value == 0xFE0F || value == 0xFE0E {
+    if index > 0, scalars[index - 1].properties.isEmoji { continue }
+    return "text_hidden_characters"
+   }
+   if value == 0x200D {
+    if index > 0, index + 1 < scalars.count,
+       emoji(scalars[index - 1]) || scalars[index - 1].value == 0xFE0F, emoji(scalars[index + 1]) { continue }
+    return "text_hidden_characters"
+   }
+   if scalar.properties.isDefaultIgnorableCodePoint { return "text_hidden_characters" }
    if (value < 32 && value != 9 && value != 10) || (value >= 0x7f && value <= 0x9f) ||
       (0x200b...0x200f).contains(value) || (0x202a...0x202e).contains(value) ||
-      (0x2066...0x2069).contains(value) || value == 0xfeff { return false }
+      (0x2066...0x2069).contains(value) || value == 0xfeff { return "text_hidden_characters" }
   }
-  return true
+  return nil
  }
 
  // Starts a fresh pending approval and reserves requestID immediately. `now`
